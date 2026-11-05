@@ -1,0 +1,1229 @@
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  Node,
+  Edge,
+  Connection,
+  NodeChange,
+  MarkerType,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import { useNarrativeStore } from '../store/useNarrativeStore';
+import {
+  ConditionOperator,
+  DialogueEffectType,
+  DRINK_INGREDIENTS,
+  NPC_EMOTIONS,
+  NpcEmotion,
+} from '../types/narrative';
+import { DialogueSpeechNode } from './nodes/DialogueSpeechNode';
+import { isValidSnakeCaseId, validateProject } from '../utils/validator';
+import {
+  Plus,
+  Trash2,
+  Play,
+  AlertCircle,
+  CheckCircle2,
+  Sparkles,
+  BookOpen,
+  Sliders,
+  GitCommit,
+  Flag,
+} from 'lucide-react';
+
+const nodeTypes = {
+  speech: DialogueSpeechNode,
+};
+
+export const DialogueGraphEditor: React.FC = () => {
+  const {
+    project,
+    selectedDialogueId,
+    selectedNodeId,
+    setSelectedDialogueId,
+    setSelectedNodeId,
+    addDialogue,
+    updateDialogueMeta,
+    addDialogueNode,
+    updateDialogueNode,
+    renameDialogueNodeId,
+    updateNodePosition,
+    deleteDialogueNode,
+    addChoice,
+    updateChoice,
+    deleteChoice,
+    connectChoiceToTarget,
+    addEffect,
+    updateEffect,
+    deleteEffect,
+    quickGrantTermOnNode,
+    setActiveTab,
+  } = useNarrativeStore();
+
+  const [newDlgId, setNewDlgId] = useState('');
+  const [newDlgTitle, setNewDlgTitle] = useState('');
+  const [editingNodeIdText, setEditingNodeIdText] = useState<string | null>(null);
+
+  const currentDialogue =
+    project.dialogues.find((d) => d.id === selectedDialogueId) ||
+    project.dialogues[0];
+
+  const selectedNode = currentDialogue?.nodes.find(
+    (n) => n.id === selectedNodeId
+  );
+
+  // Run live validator
+  const allIssues = useMemo(() => validateProject(project), [project]);
+  const dialogueIssues = useMemo(
+    () =>
+      allIssues.filter(
+        (iss) => !iss.dialogueId || iss.dialogueId === currentDialogue?.id
+      ),
+    [allIssues, currentDialogue?.id]
+  );
+
+  const allConclusions = useMemo(() => {
+    const list: Array<{ id: string; text: string; groupTitle: string }> = [];
+    for (const g of project.reasoning_groups) {
+      for (const o of g.options) {
+        list.push({ id: o.id, text: o.text, groupTitle: g.title });
+      }
+    }
+    return list;
+  }, [project.reasoning_groups]);
+
+  // Convert DialogueNodes to ReactFlow Nodes
+  const rfNodes: Node[] = useMemo(() => {
+    if (!currentDialogue) return [];
+    return currentDialogue.nodes.map((node) => {
+      const char = project.characters.find(
+        (c) => c.id === (node.character_id || currentDialogue.character_id)
+      );
+      const nodeIssues = dialogueIssues.filter((i) => i.nodeId === node.id);
+      return {
+        id: node.id,
+        type: 'speech',
+        position: node.position || { x: 100, y: 100 },
+        data: {
+          node,
+          isStart: currentDialogue.start_node === node.id,
+          isSelected: selectedNodeId === node.id,
+          avatarColor: char?.avatar_color || '#38bdf8',
+          issues: nodeIssues,
+        },
+      };
+    });
+  }, [currentDialogue, project.characters, selectedNodeId, dialogueIssues]);
+
+  // Convert DialogueChoices to ReactFlow Edges
+  const rfEdges: Edge[] = useMemo(() => {
+    if (!currentDialogue) return [];
+    const edges: Edge[] = [];
+    for (const node of currentDialogue.nodes) {
+      if (node.end) continue;
+      for (const ch of node.choices) {
+        if (!ch.target) continue;
+        const hasCond =
+          (ch.required_terms && ch.required_terms.length > 0) ||
+          (ch.required_conclusions && ch.required_conclusions.length > 0) ||
+          (ch.conditions && ch.conditions.length > 0);
+        edges.push({
+          id: `e-${node.id}-${ch.id}-${ch.target}`,
+          source: node.id,
+          sourceHandle: ch.id,
+          target: ch.target,
+          animated: hasCond,
+          label: ch.id,
+          style: {
+            stroke: hasCond ? '#f59e0b' : '#38bdf8',
+            strokeWidth: 2,
+          },
+          labelStyle: {
+            fill: '#cbd5e1',
+            fontSize: 11,
+            fontFamily: 'monospace',
+          },
+          labelBgStyle: {
+            fill: '#0f172a',
+            fillOpacity: 0.85,
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: hasCond ? '#f59e0b' : '#38bdf8',
+          },
+        });
+      }
+    }
+    return edges;
+  }, [currentDialogue]);
+
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      if (!currentDialogue) return;
+      for (const change of changes) {
+        if (change.type === 'position' && change.position) {
+          updateNodePosition(currentDialogue.id, change.id, change.position);
+        }
+      }
+    },
+    [currentDialogue, updateNodePosition]
+  );
+
+  const handleConnect = useCallback(
+    (connection: Connection) => {
+      if (
+        !currentDialogue ||
+        !connection.source ||
+        !connection.sourceHandle ||
+        !connection.target
+      ) {
+        return;
+      }
+      connectChoiceToTarget(
+        currentDialogue.id,
+        connection.source,
+        connection.sourceHandle,
+        connection.target
+      );
+    },
+    [currentDialogue, connectChoiceToTarget]
+  );
+
+  // Extract **highlighted words** from current node text for 1-click term creation
+  const extractedBoldWords = useMemo(() => {
+    if (!selectedNode) return [];
+    const matches = selectedNode.text.match(/\*\*([^*]+)\*\*/g) || [];
+    return matches.map((m) => m.slice(2, -2).trim()).filter(Boolean);
+  }, [selectedNode]);
+
+  const handleCreateNewDialogue = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanId = newDlgId.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    if (!cleanId || !isValidSnakeCaseId(cleanId)) return;
+    if (project.dialogues.some((d) => d.id === cleanId)) return;
+
+    const char = project.characters[0];
+    addDialogue({
+      id: cleanId,
+      character_id: char?.id || 'arkadiy',
+      title: newDlgTitle.trim() || `Диалог: ${cleanId}`,
+      start_node: 'opening',
+      allow_cycles: false,
+      test_content: false,
+      nodes: [
+        {
+          id: 'opening',
+          speaker: char?.name || 'Аркадий',
+          character_id: char?.id || 'arkadiy',
+          emotion: 'neutral',
+          text: 'Начальная реплика разговора...',
+          end: false,
+          position: { x: 100, y: 180 },
+          effects: [],
+          choices: [
+            {
+              id: 'leave',
+              text: 'Закончить разговор',
+              target: 'goodbye',
+              required_terms: [],
+              required_conclusions: [],
+              conditions: [],
+            },
+          ],
+        },
+        {
+          id: 'goodbye',
+          speaker: char?.name || 'Аркадий',
+          character_id: char?.id || 'arkadiy',
+          emotion: 'neutral',
+          text: 'Завершение разговора.',
+          end: true,
+          position: { x: 540, y: 180 },
+          effects: [],
+          choices: [],
+        },
+      ],
+    });
+    setNewDlgId('');
+    setNewDlgTitle('');
+  };
+
+  if (!currentDialogue) {
+    return <div className="page-container">Нет диалогов.</div>;
+  }
+
+  return (
+    <div className="graph-workspace">
+      {/* Top Dialogue Bar */}
+      <div className="graph-toolbar">
+        <div className="toolbar-group">
+          <label>Диалог:</label>
+          <select
+            className="dialogue-select"
+            value={currentDialogue.id}
+            onChange={(e) => setSelectedDialogueId(e.target.value)}
+          >
+            {project.dialogues.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.title} ({d.id})
+              </option>
+            ))}
+          </select>
+
+          <label>Персонаж:</label>
+          <select
+            value={currentDialogue.character_id}
+            onChange={(e) =>
+              updateDialogueMeta(currentDialogue.id, {
+                character_id: e.target.value,
+              })
+            }
+          >
+            {project.characters.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.id})
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => addDialogueNode(currentDialogue.id, { end: false })}
+          >
+            <Plus size={15} /> + Узел реплики
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() =>
+              addDialogueNode(currentDialogue.id, {
+                id: `end_${currentDialogue.nodes.length + 1}`,
+                text: 'Финальная реплика разговора.',
+                end: true,
+              })
+            }
+          >
+            <Flag size={14} /> + Финальный узел
+          </button>
+          <button
+            type="button"
+            className="btn btn-accent"
+            onClick={() => setActiveTab('simulator')}
+          >
+            <Play size={14} /> Симулятор диалога
+          </button>
+        </div>
+
+        {/* Validator Badge */}
+        <div className="toolbar-group">
+          {dialogueIssues.length === 0 ? (
+            <span className="validator-pill valid">
+              <CheckCircle2 size={14} /> Граф валиден для Godot ({currentDialogue.nodes.length} узлов)
+            </span>
+          ) : (
+            <span
+              className="validator-pill invalid"
+              title={dialogueIssues.map((i) => i.message).join('\n')}
+            >
+              <AlertCircle size={14} /> Ошибок валидации: {dialogueIssues.length}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Main Split: Canvas + Inspector */}
+      <div className="graph-main-area">
+        <div className="rf-canvas-wrapper">
+          <ReactFlow
+            nodes={rfNodes}
+            edges={rfEdges}
+            nodeTypes={nodeTypes}
+            onNodesChange={handleNodesChange}
+            onConnect={handleConnect}
+            onNodeClick={(_, node) => {
+              setSelectedNodeId(node.id);
+              setEditingNodeIdText(null);
+            }}
+            fitView
+            minZoom={0.25}
+            maxZoom={1.6}
+          >
+            <Background color="#1e293b" gap={22} />
+            <Controls />
+            <MiniMap
+              nodeColor={(n) => {
+                const d = n.data as { isStart?: boolean; node?: { end?: boolean } };
+                if (d?.isStart) return '#38bdf8';
+                if (d?.node?.end) return '#10b981';
+                return '#475569';
+              }}
+              maskColor="rgba(15, 23, 42, 0.75)"
+            />
+          </ReactFlow>
+
+          {/* Validation Issues Drawer if any */}
+          {dialogueIssues.length > 0 && (
+            <div className="validation-Overlay">
+              <h4>
+                <AlertCircle size={14} /> Диагностика DialogueContentValidator:
+              </h4>
+              <ul>
+                {dialogueIssues.map((iss, idx) => (
+                  <li
+                    key={idx}
+                    onClick={() => iss.nodeId && setSelectedNodeId(iss.nodeId)}
+                  >
+                    <code>{iss.path}</code>: {iss.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* Right-Hand Node & Dialogue Inspector */}
+        <aside className="node-inspector">
+          {/* Dialogue Metadata Collapsible / Header */}
+          <div className="inspector-section">
+            <h4>Параметры диалога</h4>
+            <div className="field-row">
+              <label>Название (title)</label>
+              <input
+                type="text"
+                value={currentDialogue.title}
+                onChange={(e) =>
+                  updateDialogueMeta(currentDialogue.id, { title: e.target.value })
+                }
+              />
+            </div>
+            <div className="field-grid-2">
+              <div className="field-row">
+                <label>Начальный узел (start_node)</label>
+                <select
+                  value={currentDialogue.start_node}
+                  onChange={(e) =>
+                    updateDialogueMeta(currentDialogue.id, {
+                      start_node: e.target.value,
+                    })
+                  }
+                >
+                  {currentDialogue.nodes.map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {n.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field-row">
+                <label className="checkbox-inline" style={{ marginTop: 22 }}>
+                  <input
+                    type="checkbox"
+                    checked={currentDialogue.allow_cycles}
+                    onChange={(e) =>
+                      updateDialogueMeta(currentDialogue.id, {
+                        allow_cycles: e.target.checked,
+                      })
+                    }
+                  />
+                  Разрешить циклы
+                </label>
+              </div>
+            </div>
+            {currentDialogue.allow_cycles && (
+              <div className="field-row">
+                <label>Описание цикла (cycle_note — обязательно для Godot)</label>
+                <input
+                  type="text"
+                  placeholder="Поясните, где выход из цикла..."
+                  value={currentDialogue.cycle_note || ''}
+                  onChange={(e) =>
+                    updateDialogueMeta(currentDialogue.id, {
+                      cycle_note: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            )}
+          </div>
+
+          {selectedNode ? (
+            <div className="inspector-body">
+              <div className="inspector-header">
+                <h3>
+                  <GitCommit size={16} /> Узел: <code>{selectedNode.id}</code>
+                </h3>
+                <div className="inline-controls">
+                  {currentDialogue.start_node !== selectedNode.id && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() =>
+                        updateDialogueMeta(currentDialogue.id, {
+                          start_node: selectedNode.id,
+                        })
+                      }
+                    >
+                      Сделать START
+                    </button>
+                  )}
+                  {currentDialogue.nodes.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      onClick={() =>
+                        deleteDialogueNode(currentDialogue.id, selectedNode.id)
+                      }
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Node ID Rename & Speaker & Emotion */}
+              <div className="field-grid-2">
+                <div className="field-row">
+                  <label>ID узла (snake_case)</label>
+                  <div className="inline-controls">
+                    <input
+                      type="text"
+                      value={
+                        editingNodeIdText !== null
+                          ? editingNodeIdText
+                          : selectedNode.id
+                      }
+                      onChange={(e) => setEditingNodeIdText(e.target.value)}
+                      onBlur={() => {
+                        if (
+                          editingNodeIdText &&
+                          isValidSnakeCaseId(editingNodeIdText)
+                        ) {
+                          renameDialogueNodeId(
+                            currentDialogue.id,
+                            selectedNode.id,
+                            editingNodeIdText
+                          );
+                        }
+                        setEditingNodeIdText(null);
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="field-row">
+                  <label>Эмоция (VisitorModel.react)</label>
+                  <select
+                    value={selectedNode.emotion || 'neutral'}
+                    onChange={(e) =>
+                      updateDialogueNode(currentDialogue.id, selectedNode.id, {
+                        emotion: e.target.value as NpcEmotion,
+                      })
+                    }
+                  >
+                    {NPC_EMOTIONS.map((em) => (
+                      <option key={em.id} value={em.id}>
+                        {em.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="field-grid-2">
+                <div className="field-row">
+                  <label>Говорящий (speaker)</label>
+                  <input
+                    type="text"
+                    value={selectedNode.speaker}
+                    onChange={(e) =>
+                      updateDialogueNode(currentDialogue.id, selectedNode.id, {
+                        speaker: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="field-row">
+                  <label className="checkbox-inline" style={{ marginTop: 22 }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedNode.end}
+                      onChange={(e) =>
+                        updateDialogueNode(currentDialogue.id, selectedNode.id, {
+                          end: e.target.checked,
+                        })
+                      }
+                    />
+                    Финальный узел (end: true)
+                  </label>
+                </div>
+              </div>
+
+              {/* Speech Text */}
+              <div className="field-row">
+                <label>
+                  Текст реплики (выделяйте важные слова как <code>**термин**</code>)
+                </label>
+                <textarea
+                  rows={4}
+                  value={selectedNode.text}
+                  onChange={(e) =>
+                    updateDialogueNode(currentDialogue.id, selectedNode.id, {
+                      text: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              {/* Quick Term Helper from **bold** words */}
+              {extractedBoldWords.length > 0 && (
+                <div className="quick-terms-helper">
+                  <small>
+                    <BookOpen size={12} /> Найдены выделенные слова в реплике:
+                  </small>
+                  <div className="chip-group">
+                    {extractedBoldWords.map((word, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="chip"
+                        onClick={() => {
+                          const suggestedId =
+                            prompt(
+                              `Введите snake_case ID термина для "${word}":`,
+                              'new_term'
+                            ) || '';
+                          const clean = suggestedId
+                            .trim()
+                            .toLowerCase()
+                            .replace(/[^a-z0-9_]/g, '_');
+                          if (!clean || !isValidSnakeCaseId(clean)) return;
+                          quickGrantTermOnNode(
+                            currentDialogue.id,
+                            selectedNode.id,
+                            clean,
+                            word,
+                            `Запись из разговора (${selectedNode.speaker}): «${word}».`
+                          );
+                        }}
+                      >
+                        + Выдать термин «{word}»
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Entry Effects (Consequences) */}
+              <div className="inspector-subsection">
+                <div className="subsection-header">
+                  <h4>
+                    <Sparkles size={15} /> Последствия и События входа (effects)
+                  </h4>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() =>
+                      addEffect(currentDialogue.id, selectedNode.id)
+                    }
+                  >
+                    <Plus size={13} /> Добавить эффект
+                  </button>
+                </div>
+
+                {selectedNode.effects.length === 0 ? (
+                  <p className="muted-text">Эффектов при входе в узел нет.</p>
+                ) : (
+                  <div className="effects-editor-list">
+                    {selectedNode.effects.map((ef) => (
+                      <div key={ef.effect_id} className="subcard">
+                        <div className="subcard-top">
+                          <select
+                            value={ef.type}
+                            onChange={(e) =>
+                              updateEffect(
+                                currentDialogue.id,
+                                selectedNode.id,
+                                ef.effect_id,
+                                {
+                                  type: e.target.value as DialogueEffectType,
+                                }
+                              )
+                            }
+                          >
+                            <option value="grant_term">
+                              Дневник: Выдать термин (grant_term)
+                            </option>
+                            <option value="add_variable">
+                              Переменная: Изменить число / доверие (add_variable)
+                            </option>
+                            <option value="set_variable">
+                              Переменная: Установить значение (set_variable)
+                            </option>
+                            <option value="npc_event">
+                              Событие NPC: Реакция / Действие (npc_event)
+                            </option>
+                            <option value="service_event">
+                              Событие Бара: Заказ напитка (service_event)
+                            </option>
+                          </select>
+                          <button
+                            type="button"
+                            className="btn-icon"
+                            onClick={() =>
+                              deleteEffect(
+                                currentDialogue.id,
+                                selectedNode.id,
+                                ef.effect_id
+                              )
+                            }
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+
+                        {ef.type === 'grant_term' && (
+                          <div className="field-row">
+                            <label>Термин словаря (term_id)</label>
+                            <select
+                              value={ef.term_id || ''}
+                              onChange={(e) =>
+                                updateEffect(
+                                  currentDialogue.id,
+                                  selectedNode.id,
+                                  ef.effect_id,
+                                  { term_id: e.target.value }
+                                )
+                              }
+                            >
+                              {project.terms.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {t.title} ({t.id})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        {(ef.type === 'add_variable' ||
+                          ef.type === 'set_variable') && (
+                          <div className="field-grid-2">
+                            <div className="field-row">
+                              <label>Переменная</label>
+                              <select
+                                value={ef.variable_id || ''}
+                                onChange={(e) =>
+                                  updateEffect(
+                                    currentDialogue.id,
+                                    selectedNode.id,
+                                    ef.effect_id,
+                                    { variable_id: e.target.value }
+                                  )
+                                }
+                              >
+                                {project.variables.map((v) => (
+                                  <option key={v.id} value={v.id}>
+                                    {v.title} ({v.id})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="field-row">
+                              <label>
+                                {ef.type === 'add_variable'
+                                  ? 'Прибавить (+/-)'
+                                  : 'Новое значение'}
+                              </label>
+                              {(() => {
+                                const targetVar = project.variables.find(
+                                  (v) => v.id === ef.variable_id
+                                );
+                                if (
+                                  ef.type === 'set_variable' &&
+                                  targetVar?.type === 'boolean'
+                                ) {
+                                  return (
+                                    <select
+                                      value={String(ef.value)}
+                                      onChange={(e) =>
+                                        updateEffect(
+                                          currentDialogue.id,
+                                          selectedNode.id,
+                                          ef.effect_id,
+                                          { value: e.target.value === 'true' }
+                                        )
+                                      }
+                                    >
+                                      <option value="true">true</option>
+                                      <option value="false">false</option>
+                                    </select>
+                                  );
+                                }
+                                if (
+                                  ef.type === 'add_variable' ||
+                                  targetVar?.type === 'number'
+                                ) {
+                                  return (
+                                    <input
+                                      type="number"
+                                      value={Number(ef.value ?? 0)}
+                                      onChange={(e) =>
+                                        updateEffect(
+                                          currentDialogue.id,
+                                          selectedNode.id,
+                                          ef.effect_id,
+                                          { value: Number(e.target.value) }
+                                        )
+                                      }
+                                    />
+                                  );
+                                }
+                                return (
+                                  <input
+                                    type="text"
+                                    value={String(ef.value ?? '')}
+                                    onChange={(e) =>
+                                      updateEffect(
+                                        currentDialogue.id,
+                                        selectedNode.id,
+                                        ef.effect_id,
+                                        { value: e.target.value }
+                                      )
+                                    }
+                                  />
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        )}
+
+                        {ef.type === 'npc_event' && (
+                          <div className="field-grid-2">
+                            <div className="field-row">
+                              <label>Тип действия NPC</label>
+                              <select
+                                value={ef.event || 'react'}
+                                onChange={(e) =>
+                                  updateEffect(
+                                    currentDialogue.id,
+                                    selectedNode.id,
+                                    ef.effect_id,
+                                    { event: e.target.value }
+                                  )
+                                }
+                              >
+                                <option value="react">Эмоция (VisitorModel.react)</option>
+                                <option value="command">
+                                  Команда (VisitorBehavior.command)
+                                </option>
+                              </select>
+                            </div>
+                            <div className="field-row">
+                              <label>Аргумент</label>
+                              {ef.event === 'command' ? (
+                                <select
+                                  value={ef.arg || 'wait'}
+                                  onChange={(e) =>
+                                    updateEffect(
+                                      currentDialogue.id,
+                                      selectedNode.id,
+                                      ef.effect_id,
+                                      { arg: e.target.value }
+                                    )
+                                  }
+                                >
+                                  <option value="wait">wait (Ожидать)</option>
+                                  <option value="drink">drink (Взять напиток)</option>
+                                  <option value="leave">leave (Уйти по концу смены)</option>
+                                </select>
+                              ) : (
+                                <select
+                                  value={ef.arg || 'interested'}
+                                  onChange={(e) =>
+                                    updateEffect(
+                                      currentDialogue.id,
+                                      selectedNode.id,
+                                      ef.effect_id,
+                                      { arg: e.target.value }
+                                    )
+                                  }
+                                >
+                                  {NPC_EMOTIONS.map((em) => (
+                                    <option key={em.id} value={em.id}>
+                                      {em.id}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {ef.type === 'service_event' && (
+                          <div className="field-grid-2">
+                            <div className="field-row">
+                              <label>Событие бара</label>
+                              <select
+                                value={ef.event || 'request_drink'}
+                                onChange={(e) =>
+                                  updateEffect(
+                                    currentDialogue.id,
+                                    selectedNode.id,
+                                    ef.effect_id,
+                                    { event: e.target.value }
+                                  )
+                                }
+                              >
+                                <option value="request_drink">
+                                  Заказ напитка (request_drink)
+                                </option>
+                              </select>
+                            </div>
+                            <div className="field-row">
+                              <label>Желаемый компонент / посуда</label>
+                              <select
+                                value={ef.arg || 'test_stvor'}
+                                onChange={(e) =>
+                                  updateEffect(
+                                    currentDialogue.id,
+                                    selectedNode.id,
+                                    ef.effect_id,
+                                    { arg: e.target.value }
+                                  )
+                                }
+                              >
+                                {DRINK_INGREDIENTS.map((dr) => (
+                                  <option key={dr.id} value={dr.id}>
+                                    {dr.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Player Choices & Conditions */}
+              {!selectedNode.end && (
+                <div className="inspector-subsection">
+                  <div className="subsection-header">
+                    <h4>
+                      <Sliders size={15} /> Варианты ответа и Условия ({selectedNode.choices.length})
+                    </h4>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() =>
+                        addChoice(currentDialogue.id, selectedNode.id)
+                      }
+                    >
+                      <Plus size={13} /> Добавить ответ
+                    </button>
+                  </div>
+
+                  <div className="choices-editor-list">
+                    {selectedNode.choices.map((ch) => (
+                      <div key={ch.id} className="subcard choice-subcard">
+                        <div className="subcard-top">
+                          <code>ID: {ch.id}</code>
+                          <button
+                            type="button"
+                            className="btn-icon"
+                            onClick={() =>
+                              deleteChoice(
+                                currentDialogue.id,
+                                selectedNode.id,
+                                ch.id
+                              )
+                            }
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+
+                        <div className="field-row">
+                          <label>Текст ответа игрока</label>
+                          <input
+                            type="text"
+                            value={ch.text}
+                            onChange={(e) =>
+                              updateChoice(
+                                currentDialogue.id,
+                                selectedNode.id,
+                                ch.id,
+                                { text: e.target.value }
+                              )
+                            }
+                          />
+                        </div>
+
+                        <div className="field-row">
+                          <label>Переход к узлу (target)</label>
+                          <select
+                            value={ch.target}
+                            onChange={(e) =>
+                              updateChoice(
+                                currentDialogue.id,
+                                selectedNode.id,
+                                ch.id,
+                                { target: e.target.value }
+                              )
+                            }
+                          >
+                            {currentDialogue.nodes.map((n) => (
+                              <option key={n.id} value={n.id}>
+                                {n.id} — {n.text.slice(0, 38)}…
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Required Terms */}
+                        <div className="field-row">
+                          <label>Требуемые термины дневника (required_terms):</label>
+                          <div className="chip-group">
+                            {project.terms.map((t) => {
+                              const active = (ch.required_terms || []).includes(
+                                t.id
+                              );
+                              return (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  className={`chip chip-sm ${
+                                    active ? 'chip-active' : ''
+                                  }`}
+                                  onClick={() => {
+                                    const cur = ch.required_terms || [];
+                                    const next = active
+                                      ? cur.filter((x) => x !== t.id)
+                                      : [...cur, t.id];
+                                    updateChoice(
+                                      currentDialogue.id,
+                                      selectedNode.id,
+                                      ch.id,
+                                      { required_terms: next }
+                                    );
+                                  }}
+                                >
+                                  {t.title}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Required Conclusions */}
+                        <div className="field-row">
+                          <label>
+                            Требуемые выводы дневника (required_conclusions):
+                          </label>
+                          <div className="chip-group">
+                            {allConclusions.map((conc) => {
+                              const active = (
+                                ch.required_conclusions || []
+                              ).includes(conc.id);
+                              return (
+                                <button
+                                  key={conc.id}
+                                  type="button"
+                                  className={`chip chip-sm ${
+                                    active ? 'chip-active' : ''
+                                  }`}
+                                  title={conc.text}
+                                  onClick={() => {
+                                    const cur = ch.required_conclusions || [];
+                                    const next = active
+                                      ? cur.filter((x) => x !== conc.id)
+                                      : [...cur, conc.id];
+                                    updateChoice(
+                                      currentDialogue.id,
+                                      selectedNode.id,
+                                      ch.id,
+                                      { required_conclusions: next }
+                                    );
+                                  }}
+                                >
+                                  {conc.id}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Variable Conditions */}
+                        <div className="field-row">
+                          <div className="subsection-header">
+                            <label>Условия по переменным / доверию:</label>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-xs"
+                              onClick={() => {
+                                const firstVar = project.variables[0];
+                                if (!firstVar) return;
+                                const nextConds = [
+                                  ...(ch.conditions || []),
+                                  {
+                                    variable_id: firstVar.id,
+                                    op: '>=' as ConditionOperator,
+                                    value: firstVar.default_value,
+                                  },
+                                ];
+                                updateChoice(
+                                  currentDialogue.id,
+                                  selectedNode.id,
+                                  ch.id,
+                                  { conditions: nextConds }
+                                );
+                              }}
+                            >
+                              + Условие
+                            </button>
+                          </div>
+
+                          {(ch.conditions || []).map((cond, cIdx) => (
+                            <div key={cIdx} className="condition-row">
+                              <select
+                                value={cond.variable_id}
+                                onChange={(e) => {
+                                  const next = (ch.conditions || []).map(
+                                    (item, i) =>
+                                      i === cIdx
+                                        ? { ...item, variable_id: e.target.value }
+                                        : item
+                                  );
+                                  updateChoice(
+                                    currentDialogue.id,
+                                    selectedNode.id,
+                                    ch.id,
+                                    { conditions: next }
+                                  );
+                                }}
+                              >
+                                {project.variables.map((v) => (
+                                  <option key={v.id} value={v.id}>
+                                    {v.id}
+                                  </option>
+                                ))}
+                              </select>
+                              <select
+                                value={cond.op}
+                                onChange={(e) => {
+                                  const next = (ch.conditions || []).map(
+                                    (item, i) =>
+                                      i === cIdx
+                                        ? {
+                                            ...item,
+                                            op: e.target
+                                              .value as ConditionOperator,
+                                          }
+                                        : item
+                                  );
+                                  updateChoice(
+                                    currentDialogue.id,
+                                    selectedNode.id,
+                                    ch.id,
+                                    { conditions: next }
+                                  );
+                                }}
+                              >
+                                <option value=">=">&gt;=</option>
+                                <option value=">">&gt;</option>
+                                <option value="==">==</option>
+                                <option value="!=">!=</option>
+                                <option value="<=">&lt;=</option>
+                                <option value="<">&lt;</option>
+                              </select>
+                              <input
+                                type="text"
+                                value={String(cond.value)}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const targetVar = project.variables.find(
+                                    (v) => v.id === cond.variable_id
+                                  );
+                                  let parsedVal: boolean | number | string = raw;
+                                  if (targetVar?.type === 'number') {
+                                    parsedVal = Number(raw) || 0;
+                                  } else if (targetVar?.type === 'boolean') {
+                                    parsedVal = raw === 'true';
+                                  }
+                                  const next = (ch.conditions || []).map(
+                                    (item, i) =>
+                                      i === cIdx
+                                        ? { ...item, value: parsedVal }
+                                        : item
+                                  );
+                                  updateChoice(
+                                    currentDialogue.id,
+                                    selectedNode.id,
+                                    ch.id,
+                                    { conditions: next }
+                                  );
+                                }}
+                              />
+                              <button
+                                type="button"
+                                className="btn-icon"
+                                onClick={() => {
+                                  const next = (ch.conditions || []).filter(
+                                    (_, i) => i !== cIdx
+                                  );
+                                  updateChoice(
+                                    currentDialogue.id,
+                                    selectedNode.id,
+                                    ch.id,
+                                    { conditions: next }
+                                  );
+                                }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="inspector-empty">
+              Кликните на узел графа, чтобы редактировать реплику, условия и
+              последствия.
+            </div>
+          )}
+
+          {/* Create New Dialogue Footer */}
+          <form className="inspector-footer-form" onSubmit={handleCreateNewDialogue}>
+            <h4>Создать новый диалог</h4>
+            <div className="field-grid-2">
+              <input
+                type="text"
+                placeholder="ID (snake_case)"
+                value={newDlgId}
+                onChange={(e) => setNewDlgId(e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Название диалога"
+                value={newDlgTitle}
+                onChange={(e) => setNewDlgTitle(e.target.value)}
+              />
+            </div>
+            <button type="submit" className="btn btn-secondary btn-sm">
+              <Plus size={13} /> Добавить диалог
+            </button>
+          </form>
+        </aside>
+      </div>
+    </div>
+  );
+};
