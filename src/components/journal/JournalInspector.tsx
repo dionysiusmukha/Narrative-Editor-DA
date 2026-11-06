@@ -179,7 +179,7 @@ export function JournalInspector({
                 ))}
                 <button
                   onClick={() => {
-                    const id = uid("page");
+                    const id = uid("page", page.title + " копия", l.pages.map((p) => p.id));
                     mutate((n) => {
                       const copy = structuredClone(page);
                       copy.id = id;
@@ -339,7 +339,7 @@ export function JournalInspector({
               <button
                 onClick={() => {
                   const copy = structuredClone(element);
-                  copy.id = uid("entry");
+                  copy.id = uid(element.type, element.reference_id + " копия", l.pages.flatMap((p) => p.elements.map((e) => e.id)));
                   copy.position = [
                     Math.min(1 - copy.size[0], copy.position[0] + 0.03),
                     Math.min(1 - copy.size[1], copy.position[1] + 0.03),
@@ -433,6 +433,7 @@ export function JournalInspector({
                       if (!e.target.value) return;
                       const id = uid(
                         element.type === "quote" ? "compare" : "connect",
+                        `${element.reference_id}_${e.target.value}`, l.interactions.map((i) => i.id),
                       );
                       mutate((n) =>
                         n.interactions.push({

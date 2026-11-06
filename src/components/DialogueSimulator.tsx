@@ -1,3 +1,4 @@
+import { gateMatches, prepareStart, displayCharacterName } from '../utils/dialogueStarts';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNarrativeStore } from '../store/useNarrativeStore';
 import {
@@ -26,7 +27,7 @@ export const DialogueSimulator: React.FC = () => {
     project.dialogues[0];
 
   const [currentNodeId, setCurrentNodeId] = useState<string>(
-    currentDialogue?.start_node || ''
+    currentDialogue?.starts?.length ? '' : currentDialogue?.start_node || ''
   );
   const [knownTerms, setKnownTerms] = useState<string[]>([]);
   const [chosenConclusions, setChosenConclusions] = useState<
@@ -119,6 +120,7 @@ export const DialogueSimulator: React.FC = () => {
       }
     }
 
+    setShift(currentShift);
     setCurrentNodeId(nodeId);
     setAppliedEffects(nextApplied);
     setKnownTerms(nextTerms);
@@ -135,18 +137,24 @@ export const DialogueSimulator: React.FC = () => {
     setShift(1);
     setChosenConclusions({});
     setEventLog(['--- Симуляция запущена с начального состояния ---']);
-    applyNodeEntry(currentDialogue.start_node, [], [], initialVariables(), {}, 1);
+    setHistory({}); setShift(1); setKnownTerms([]); setVariables(initialVariables()); setAppliedEffects([]); setReaction('neutral');
+    if (currentDialogue.starts?.length) setCurrentNodeId('');
+    else applyNodeEntry(currentDialogue.start_node, [], [], initialVariables(), {}, 1);
   };
 
   const startMeeting = () => {
-    if (currentDialogue) applyNodeEntry(currentDialogue.start_node, appliedEffects, knownTerms, variables);
+    if (!currentDialogue) return;
+    if (currentDialogue.starts?.length) setCurrentNodeId('');
+    else applyNodeEntry(currentDialogue.start_node, appliedEffects, knownTerms, variables);
   };
 
   const nextShift = () => {
     if (!currentDialogue) return;
     setShift(shift + 1);
     setEventLog((previous) => [`--- Смена ${shift + 1} ---`, ...previous]);
-    applyNodeEntry(currentDialogue.start_node, [], knownTerms, initialVariables(), history, shift + 1);
+    setAppliedEffects([]); setVariables(initialVariables());
+    if (currentDialogue.starts?.length) setCurrentNodeId('');
+    else applyNodeEntry(currentDialogue.start_node, [], knownTerms, initialVariables(), history, shift + 1);
   };
 
   const simulateService = () => {
@@ -384,13 +392,21 @@ export const DialogueSimulator: React.FC = () => {
           </button>
         </div>
 
+        {!currentNode && !!currentDialogue.starts?.length && <div className="card start-picker"><h3>С какого предусловия начать?</h3>
+          <p>«Начать» использует текущую историю. «Отдельный тест» сбрасывает состояние симуляции и создаёт историю для выбранного предусловия.</p>
+          {currentDialogue.starts.map((start) => <article className="subcard" key={start.id}><h4>{start.title}</h4>
+            <p>Со смены {start.min_shift}. Произошли: {start.required_events.map((id) => events.find((e) => e.id === id)?.title || id).join(', ') || 'любые'}. Ещё не произошли: {start.excluded_events.map((id) => events.find((e) => e.id === id)?.title || id).join(', ') || 'нет ограничений'}.</p>
+            <button className="btn btn-primary" disabled={!gateMatches(start, history, shift)} onClick={() => applyNodeEntry(start.node_id, appliedEffects, knownTerms, variables)}>Начать с текущей историей</button>
+            <button className="btn btn-secondary" onClick={() => { const preset = prepareStart(start); setChosenConclusions({}); setEventLog([`Отдельный тест: ${start.title}`]); applyNodeEntry(start.node_id, [], [], initialVariables(), preset.history, preset.shift); }}>Отдельный тест предусловия</button>
+          </article>)}
+        </div>}
         {currentNode ? (
           <div className="sim-dialogue-box">
             {/* NPC Speech Bubble */}
             <div className="sim-voice-bubble">
               <div className="sim-speaker-bar">
                 <div className="sim-speaker-title">
-                  <strong>{currentNode.speaker}</strong>
+                  <strong>{(() => { const actor = project.characters.find((c) => c.id === (currentNode.character_id || currentDialogue.character_id)); return actor ? displayCharacterName(actor, history, shift) : currentNode.speaker; })()}</strong>
                   <code>узел: {currentNode.id}</code>
                 </div>
                 <span

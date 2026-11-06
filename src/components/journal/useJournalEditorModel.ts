@@ -1,3 +1,4 @@
+import { generateId } from '../../utils/ids';
 import { useState } from "react";
 import { useNarrativeStore } from "../../store/useNarrativeStore";
 import type {
@@ -12,8 +13,7 @@ import {
   elementVisible,
   validateJournal,
 } from "../../utils/journal";
-export const uid = (prefix: string) =>
-  `${prefix}_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
+export const uid = (prefix: string, title = crypto.randomUUID().replaceAll("-", "").slice(0, 16), existing: Iterable<string> = []) => generateId(prefix, title, existing);
 const blank = (): JournalLayout => ({
   schema_version: 1,
   id: uid("layout"),
@@ -93,7 +93,7 @@ export function useJournalEditorModel() {
     point: Point = [0.1, 0.15],
   ) {
     if (!page) return;
-    const id = uid("entry");
+    const id = uid(type, (type === 'term' || type === 'quote' ? project.terms.find((item) => item.id === ref)?.title : type === 'conclusion' ? project.reasoning_groups.flatMap((g) => g.options).find((item) => item.id === ref)?.title : library.find((item) => item.type === type && item.ref === ref)?.text) || 'Новый элемент', l.pages.flatMap((p) => p.elements.map((e) => e.id)));
     mutate((n) =>
       n.pages
         .find((p) => p.id === page.id)!
@@ -110,7 +110,7 @@ export function useJournalEditorModel() {
     select(id);
   }
   function addPage() {
-    const id = uid("page");
+    const id = uid("page", "Новая страница", l.pages.map((p) => p.id));
     mutate((n) =>
       n.pages.push({
         id,
@@ -140,7 +140,7 @@ export function useJournalEditorModel() {
   function createLine(target: string) {
     if (!element || !target) return;
     const b = page.elements.find((e) => e.id === target)!;
-    const id = uid("line");
+    const id = uid("line", `${element.reference_id}_${b.reference_id}`, l.connections.map((c) => c.id));
     mutate((n) =>
       n.connections.push({
         id,

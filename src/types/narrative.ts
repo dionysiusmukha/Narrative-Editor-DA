@@ -27,7 +27,17 @@ export interface CharacterRelationship {
   note: string;
 }
 
+export interface EventGate {
+  required_events: string[];
+  excluded_events: string[];
+  min_shift: number;
+}
+export interface DialogueStart extends EventGate { id: string; title: string; node_id: string }
+export interface CharacterNameRule extends EventGate { id: string; name: string }
+
 export interface NarrativeCharacter {
+  unknown_name?: string;
+  name_rules?: CharacterNameRule[];
   id: string;
   name: string;
   role: string;
@@ -66,6 +76,7 @@ export interface GlossaryTerm {
 }
 
 export interface ReasoningOption {
+  title?: string;
   id: string;
   text: string;
   required_conclusions?: string[];
@@ -104,6 +115,7 @@ export interface ChoiceCondition {
 }
 
 export interface DialogueChoice {
+  title?: string;
   id: string;
   text: string;
   target: string;
@@ -120,6 +132,7 @@ export type DialogueEffectType =
   | 'service_event';
 
 export interface DialogueEffect {
+  title?: string;
   effect_id: string;
   type: DialogueEffectType;
   term_id?: string;
@@ -130,6 +143,7 @@ export interface DialogueEffect {
 }
 
 export interface DialogueNode {
+  title?: string;
   id: string;
   speaker: string;
   character_id?: string;
@@ -143,6 +157,7 @@ export interface DialogueNode {
 }
 
 export interface DialogueDocument {
+  starts?: DialogueStart[];
   id: string;
   character_id: string;
   title: string;
@@ -173,6 +188,7 @@ export const RECORD_KINDS = ['memory', 'knowledge', 'belief', 'testimony'] as co
 export type RecordKind = typeof RECORD_KINDS[number];
 
 interface RecordBase {
+  title?: string;
   id: string;
   character_id: string;
   text: string;
@@ -185,6 +201,8 @@ export type NarrativeRecord = RecordBase & (
 );
 
 export interface NarrativeEvent {
+  character_id?: string;
+  title?: string;
   id: string;
   fact: string;
   records: NarrativeRecord[];

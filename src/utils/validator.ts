@@ -1,3 +1,4 @@
+import { validateStartRules } from './dialogueStarts.ts';
 import type {
   DialogueDocument,
   NarrativeProject,
@@ -104,7 +105,7 @@ export function validateProject(project: NarrativeProject): ValidationIssue[] {
     issues.push(...validateDialogue(dialogue, termIds, conclusionIds, variableIds, allowed));
   }
 
-  return [...issues, ...validateMemoryProject(project)];
+  return [...issues, ...validateMemoryProject(project), ...validateStartRules(project)];
 }
 
 export function validateDialogue(
@@ -378,7 +379,7 @@ export function validateDialogue(
     return seen;
   };
 
-  const reachable = walk([dialogue.start_node], edges);
+  const reachable = walk(dialogue.starts?.length ? dialogue.starts.map((start) => start.node_id).filter((id) => nodeMap.has(id)) : [dialogue.start_node], edges);
   const canEnd = walk(endings, reverse);
 
   for (const id of nodeMap.keys()) {

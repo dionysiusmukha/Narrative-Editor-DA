@@ -1,10 +1,13 @@
+import { characterId as scopedId } from '../utils/ids';
+import { AutomaticId } from './AutomaticId';
+import { generateId } from '../utils/ids';
 import { useState } from 'react';
 import { useNarrativeStore } from '../store/useNarrativeStore';
 import { RECORD_KINDS, type NarrativeEvent, type NarrativeRecord, type RecordKind, type TestimonyLink } from '../types/narrative';
 import { KIND_LABELS, memoryReferences, recordKey } from '../utils/npcMemory';
 
 const emptyRecord = (kind: RecordKind, character_id: string, event_id: string): NarrativeRecord => {
-  const base = { id: '', character_id, text: '' };
+  const base = { id: '', title: '', character_id, text: '' };
   if (kind === 'memory') return { ...base, kind, interpretation: '', emotion: 'neutral', significance: 0.5, confidence: 0.5 };
   if (kind === 'testimony') return { ...base, kind, event_id, source: '', related: [] };
   return { ...base, kind };
@@ -34,42 +37,56 @@ export function MemoryEditor({ characterId }: { characterId?: string }) {
 
   function saveEvent() {
     if (!eventDraft) return;
-    if (!validId(eventDraft.id) || !eventDraft.fact.trim() || (eventDraft.service && !validId(eventDraft.service.drink_id))) {
-      setMessage('Укажите ID в snake_case, факт и, для триггера подачи, корректный ID напитка.');
+    const eventToSave = events.some((event) => event.records === eventDraft.records) ? eventDraft : { ...eventDraft, id: scopedId('event', characterName(eventDraft.character_id || ''), eventDraft.title || '', events.map((event) => event.id)) };
+    if ((!events.some((event) => event.records === eventDraft.records) && !eventDraft.title?.trim()) || !validId(eventToSave.id) || !eventToSave.fact.trim() || (eventToSave.service && !validId(eventToSave.service.drink_id))) {
+      setMessage('Укажите название события, факт и, для триггера подачи, корректный ID напитка.');
       return;
     }
-    const exists = events.find((event) => event.id === eventDraft.id);
-    if (exists && eventDraft.records !== exists.records) { setMessage('Событие с таким ID уже существует.'); return; }
-    updateNarrative({ narrative_events: exists ? events.map((event) => event.id === eventDraft.id ? eventDraft : event) : [...events, eventDraft] });
+    const exists = events.find((event) => event.id === eventToSave.id);
+    if (exists && eventToSave.records !== exists.records) { setMessage('Событие с таким ID уже существует.'); return; }
+    updateNarrative({ narrative_events: exists ? events.map((event) => event.id === eventToSave.id ? eventToSave : event) : [...events, eventToSave] });
     setEventDraft(undefined);
     setMessage('Событие сохранено.');
   }
 
   function saveRecord() {
     if (!draft) return;
-    const { record, eventId, original } = draft;
+    const { eventId, original } = draft;
+    const record = original ? draft.record : { ...draft.record, id: scopedId(draft.record.kind, characterName(draft.record.character_id), draft.record.title || '', records.filter((item) => item.record.kind === draft.record.kind).map((item) => item.record.id)) };
     const key = recordKey(record);
-    if (!validId(record.id) || !record.text.trim() || !project.characters.some((character) => character.id === record.character_id) || !events.some((event) => event.id === eventId) ||
-        (!original && records.some((item) => recordKey(item.record) === key)) ||
-        (record.kind === 'memory' && (!record.interpretation.trim() || !validId(record.emotion) || ![record.significance, record.confidence].every((value) => value >= 0 && value <= 1))) ||
-        (record.kind === 'testimony' && (!record.source.trim() || !events.some((event) => event.id === record.event_id)))) {
-      setMessage('Проверьте уникальный ID, обязательные поля и числовые оценки от 0 до 1.');
-      return;
+    const errors: string[] = [];
+    if (!original && !record.title?.trim()) errors.push('Укажите название записи');
+    if (!validId(record.id)) errors.push('ID записи: латинская буква в начале, далее строчные латинские буквы, цифры и подчёркивания');
+    if (!record.text.trim()) errors.push('Заполните содержание');
+    if (!project.characters.some((character) => character.id === record.character_id)) errors.push('Выберите существующего персонажа');
+    if (!events.some((event) => event.id === eventId)) errors.push('Сначала создайте исходное событие');
+    if (!original && records.some((item) => recordKey(item.record) === key)) errors.push('Запись этого типа с таким ID уже существует');
+    if (record.kind === 'memory') {
+      if (!record.interpretation.trim()) errors.push('Заполните интерпретацию памяти');
+      if (!validId(record.emotion)) errors.push('ID эмоции: строчная латиница, цифры и подчёркивания');
+      if (![record.significance, record.confidence].every((value) => Number.isFinite(value) && value >= 0 && value <= 1)) errors.push('Значимость и уверенность должны быть числами от 0 до 1');
     }
+    if (record.kind === 'testimony') {
+      if (!record.source.trim()) errors.push('Укажите источник свидетельства');
+      if (!events.some((event) => event.id === record.event_id)) errors.push('Выберите событие, о котором говорят');
+    }
+    if (errors.length) { setMessage(errors.join('. ') + '.'); return; }
     updateNarrative({ narrative_events: events.map((event) => {
       const remaining = event.records.filter((item) => recordKey(item) !== original);
       return { ...event, records: event.id === eventId ? [...remaining, record] : remaining };
     }) });
     setDraft(undefined);
-    setMessage('Запись сохранена.');
+    setQuery('');
+    setEventFilter('');
+    setMessage('Запись сохранена в браузере. Для записи в файл нажмите «Сохранить проект».');
   }
 
   function remove(event: NarrativeEvent, record?: NarrativeRecord) {
     const affected = record ? [record] : event.records;
     const refs = memoryReferences(project, event.id, affected.map(recordKey), !record);
     const linked = affected.some((item) => item.kind === 'testimony' && links.some((link) => link.from === item.id || link.to === item.id));
-    if (refs.dialogues.length || refs.testimony.length || linked) {
-      setMessage(`Сначала удалите ссылки. Диалоги: ${refs.dialogues.map((item) => item.id).join(', ') || '—'}. Свидетельства: ${refs.testimony.map((item) => item.id).join(', ') || '—'}.${linked ? ' Есть редакторские связи.' : ''}`);
+    if (refs.dialogues.length || refs.testimony.length || refs.nameRules.length || linked) {
+      setMessage(`Сначала удалите ссылки. Диалоги: ${refs.dialogues.map((item) => item.id).join(', ') || '—'}. Свидетельства: ${refs.testimony.map((item) => item.id).join(', ') || '—'}.${refs.nameRules.length ? ' Есть правила имён: ' + refs.nameRules.map((c) => c.name).join(', ') + '.' : ''}${linked ? ' Есть редакторские связи.' : ''}`);
       return;
     }
     if (!window.confirm(`Удалить ${record?.id || event.id}?`)) return;
@@ -86,7 +103,7 @@ export function MemoryEditor({ characterId }: { characterId?: string }) {
     setMessage('Связь сохранена в проекте редактора.');
   }
 
-  const eventOptions = events.map((event) => <option key={event.id} value={event.id}>{event.id} · {event.fact}</option>);
+  const eventOptions = events.map((event) => <option key={event.id} value={event.id}>{event.title || event.id}</option>);
   const characterOptions = project.characters.map((character) => <option key={character.id} value={character.id}>{character.name}</option>);
   const record = draft?.record;
   return <section className={`memory-editor ${characterId ? '' : 'page-container'}`}>
@@ -100,16 +117,19 @@ export function MemoryEditor({ characterId }: { characterId?: string }) {
       {section !== 'events' && <select aria-label="Фильтр по событию" value={eventFilter} onChange={(e) => setEventFilter(e.target.value)}><option value="">Все события</option>{eventOptions}</select>}
       <button type="button" className="btn btn-primary" disabled={section !== 'events' && !events.length} onClick={() => {
         setMessage('');
-        if (section === 'events') setEventDraft({ id: '', fact: '', records: [] });
+        if (section === 'events') setEventDraft({ id: '', title: '', character_id: characterId || '', fact: '', records: [] });
         else setDraft({ eventId: eventFilter || events[0].id, record: emptyRecord(section, characterId || project.characters[0]?.id || '', eventFilter || events[0].id) });
       }}>{section === 'events' ? '+ Событие' : '+ Запись'}</button>
-      {characterId && !events.length && <button className="btn btn-secondary" onClick={() => setActiveTab('events')}>Сначала создайте событие</button>}
+      {section !== 'events' && <button type="button" className="btn btn-secondary" onClick={() => { setMessage(''); setEventDraft({ id: '', title: '', character_id: characterId || '', fact: '', records: [] }); }}>+ Исходное событие</button>}
     </div>
+    {section !== 'events' && !events.length && <p className="memory-status">Для памяти, знаний, убеждений и свидетельств нужно исходное сюжетное событие. Нажмите «+ Исходное событие», заполните ID и факт, затем создайте запись.</p>}
     {message && <p role="status" className="memory-status">{message}</p>}
 
     {eventDraft && <form className="card memory-form" onSubmit={(e) => { e.preventDefault(); saveEvent(); }}>
       <h3>Сюжетное событие</h3>
-      <label>ID<input required readOnly={events.some((event) => event.records === eventDraft.records)} value={eventDraft.id} onChange={(e) => setEventDraft({ ...eventDraft, id: e.target.value })} /></label>
+      <AutomaticId value={events.some((event) => event.records === eventDraft.records) ? eventDraft.id : scopedId('event', characterName(eventDraft.character_id || ''), eventDraft.title || '', events.map((event) => event.id))} />
+      <label>Персонаж события<select value={eventDraft.character_id || ''} onChange={(e) => setEventDraft({ ...eventDraft, character_id: e.target.value })}><option value="">Общее событие</option>{characterOptions}</select></label>
+      <label>Название события<input required value={eventDraft.title || ''} onChange={(e) => setEventDraft({ ...eventDraft, title: e.target.value })} /></label>
       <label>Объективный факт<textarea required value={eventDraft.fact} onChange={(e) => setEventDraft({ ...eventDraft, fact: e.target.value })} /></label>
       <label><input type="checkbox" checked={!!eventDraft.service} onChange={(e) => setEventDraft({ ...eventDraft, service: e.target.checked ? { character_id: project.characters[0]?.id || '', drink_id: 'prepared_drink' } : undefined })} /> Записать при успешной подаче</label>
       {eventDraft.service && <div className="field-grid-2">
@@ -122,7 +142,8 @@ export function MemoryEditor({ characterId }: { characterId?: string }) {
     {record && draft && <form className="card memory-form" onSubmit={(e) => { e.preventDefault(); saveRecord(); }}>
       <h3>{KIND_LABELS[record.kind]}</h3>
       <div className="field-grid-2">
-        <label>ID<input required readOnly={!!draft.original} value={record.id} onChange={(e) => updateRecord({ ...record, id: e.target.value })} /></label>
+        <AutomaticId value={draft.original ? record.id : scopedId(record.kind, characterName(record.character_id), record.title || '', records.filter((item) => item.record.kind === record.kind).map((item) => item.record.id))} />
+        <label>{record.kind === 'memory' ? 'Название воспоминания' : 'Название записи'}<input required value={record.title || ''} onChange={(e) => updateRecord({ ...record, title: e.target.value })} /></label>
         <label>Персонаж<select disabled={!!characterId} value={record.character_id} onChange={(e) => updateRecord({ ...record, character_id: e.target.value })}>{characterOptions}</select></label>
       </div>
       <label>{record.kind === 'testimony' ? 'Событие получения' : 'Исходное событие'}<select value={draft.eventId} onChange={(e) => setDraft({ ...draft, eventId: e.target.value })}>{eventOptions}</select></label>
@@ -156,23 +177,23 @@ export function MemoryEditor({ characterId }: { characterId?: string }) {
       <div className="inline-controls"><button className="btn btn-primary">Сохранить связь</button><button type="button" className="btn btn-secondary" onClick={() => setLinkDraft(undefined)}>Отмена</button></div>
     </form>}
 
-    {section === 'events' ? events.filter((event) => matches(event.id, event.fact)).map((event) => {
+    {section === 'events' ? events.filter((event) => matches(event.id, event.title || '', event.fact)).map((event) => {
       const refs = memoryReferences(project, event.id, event.records.map(recordKey), true);
       return <article key={event.id} className="card memory-card">
         <div className="card-header-inline"><code>{event.id}</code><div className="inline-controls"><button className="btn btn-secondary btn-sm" onClick={() => setEventDraft({ ...event })}>Править</button><button className="btn btn-danger btn-sm" onClick={() => remove(event)}>Удалить</button></div></div>
-        <p>{event.fact}</p>
+        <strong>{event.title || event.id}</strong><p>{event.fact}</p>
         <div className="inline-controls">
           {RECORD_KINDS.map((kind) => <button key={kind} className="btn btn-secondary btn-xs" onClick={() => { setSection(kind); setEventFilter(event.id); setQuery(''); }}>{KIND_LABELS[kind]}</button>)}
           {refs.dialogues.map((dialogue) => <button key={dialogue.id} className="btn btn-secondary btn-xs" onClick={() => { setSelectedDialogueId(dialogue.id); setActiveTab('dialogues'); }}>{dialogue.id}</button>)}
         </div>
       </article>;
     }) : records.filter(({ event, record }) => record.kind === section && (!characterId || record.character_id === characterId) &&
-      (!eventFilter || (record.kind === 'testimony' ? record.event_id === eventFilter : event.id === eventFilter)) && matches(record.id, record.text, event.id, characterName(record.character_id))).map(({ event, record }) => {
+      (!eventFilter || (event.id === eventFilter || (record.kind === 'testimony' && record.event_id === eventFilter))) && matches(record.id, record.title || '', record.text, event.id, characterName(record.character_id))).map(({ event, record }) => {
         const key = recordKey(record);
         const refs = memoryReferences(project, event.id, event.records.map(recordKey), true);
         return <article key={key} className="card memory-card">
           <div className="card-header-inline"><code>{key}</code><div className="inline-controls"><button className="btn btn-secondary btn-sm" onClick={() => setDraft({ eventId: event.id, original: key, record })}>Править</button><button className="btn btn-danger btn-sm" onClick={() => remove(event, record)}>Удалить</button></div></div>
-          <p>{record.text}</p>
+          <strong>{record.title || record.id}</strong><p>{record.text}</p>
           {record.kind === 'memory' && <p className="muted-text">{record.interpretation} · {record.emotion} · значимость {record.significance} · уверенность {record.confidence}</p>}
           {record.kind === 'testimony' && <>
             <p className="muted-text">Источник — {record.source}. О событии {record.event_id}. {record.related.join(', ')}</p>

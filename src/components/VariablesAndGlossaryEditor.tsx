@@ -1,3 +1,5 @@
+import { AutomaticId } from './AutomaticId';
+import { generateId, characterId } from '../utils/ids';
 import React, { useState } from 'react';
 import { useNarrativeStore } from '../store/useNarrativeStore';
 import {
@@ -31,24 +33,21 @@ export const VariablesAndGlossaryEditor: React.FC<{
   } = useNarrativeStore();
 
   // Variable form state
-  const [varId, setVarId] = useState('');
   const [varTitle, setVarTitle] = useState('');
   const [varType, setVarType] = useState<VariableType>('number');
   const [varCategory, setVarCategory] = useState<VariableCategory>('relationship');
   const [varCharId, setVarCharId] = useState('arkadiy');
 
   // Term form state
-  const [termId, setTermId] = useState('');
   const [termTitle, setTermTitle] = useState('');
   const [termDesc, setTermDesc] = useState('');
 
   // Reasoning group form state
-  const [groupId, setGroupId] = useState('');
   const [groupTitle, setGroupTitle] = useState('');
 
   const handleAddVariable = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanId = varId.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    const cleanId = characterId('variable', project.characters.find((c) => c.id === varCharId)?.name || '', varTitle, project.variables.map((item) => item.id));
     if (!cleanId || !isValidSnakeCaseId(cleanId)) return;
     if (project.variables.some((v) => v.id === cleanId)) return;
 
@@ -61,13 +60,12 @@ export const VariablesAndGlossaryEditor: React.FC<{
       character_id: varCharId || undefined,
       description: '',
     });
-    setVarId('');
     setVarTitle('');
   };
 
   const handleAddTerm = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanId = termId.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    const cleanId = generateId('term', termTitle, project.terms.map((item) => item.id));
     if (!cleanId || !isValidSnakeCaseId(cleanId)) return;
     if (project.terms.some((t) => t.id === cleanId)) return;
 
@@ -76,14 +74,13 @@ export const VariablesAndGlossaryEditor: React.FC<{
       title: termTitle.trim() || cleanId,
       description: termDesc.trim() || 'Описание записи в дневнике...',
     });
-    setTermId('');
     setTermTitle('');
     setTermDesc('');
   };
 
   const handleAddGroup = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanId = groupId.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    const cleanId = generateId('group', groupTitle, project.reasoning_groups.map((item) => item.id));
     if (!cleanId || !isValidSnakeCaseId(cleanId)) return;
     if (project.reasoning_groups.some((g) => g.id === cleanId)) return;
 
@@ -96,11 +93,10 @@ export const VariablesAndGlossaryEditor: React.FC<{
       sheet: 1,
       position: [0.4, 0.4],
       options: [
-        { id: `${cleanId}_opt_a`, text: 'Первая версия вывода.' },
-        { id: `${cleanId}_opt_b`, text: 'Альтернативная версия вывода.' },
+        { id: generateId('conclusion', 'Первый вывод', project.reasoning_groups.flatMap((g) => g.options.map((o) => o.id))), title: 'Первый вывод', text: 'Первая версия вывода.' },
+        { id: generateId('conclusion', 'Альтернативный вывод', project.reasoning_groups.flatMap((g) => g.options.map((o) => o.id))), title: 'Альтернативный вывод', text: 'Альтернативная версия вывода.' },
       ],
     });
-    setGroupId('');
     setGroupTitle('');
   };
 
@@ -124,12 +120,7 @@ export const VariablesAndGlossaryEditor: React.FC<{
             <h3>Добавить переменную</h3>
             <div className="field-row">
               <label>ID переменной (snake_case)</label>
-              <input
-                type="text"
-                placeholder="напр. arkadiy_key_given"
-                value={varId}
-                onChange={(e) => setVarId(e.target.value)}
-              />
+              <AutomaticId value={characterId('variable', project.characters.find((c) => c.id === varCharId)?.name || '', varTitle, project.variables.map((item) => item.id))} />
             </div>
             <div className="field-row">
               <label>Название</label>
@@ -288,12 +279,7 @@ export const VariablesAndGlossaryEditor: React.FC<{
           <h3>Термины словаря ({project.terms.length})</h3>
           <form className="inline-add-box" onSubmit={handleAddTerm}>
             <div className="field-grid-2">
-              <input
-                type="text"
-                placeholder="ID (напр. depot_key)"
-                value={termId}
-                onChange={(e) => setTermId(e.target.value)}
-              />
+              <AutomaticId value={generateId('term', termTitle, project.terms.map((item) => item.id))} />
               <input
                 type="text"
                 placeholder="Заголовок (напр. Ключ от депо)"
@@ -360,12 +346,7 @@ export const VariablesAndGlossaryEditor: React.FC<{
           </h3>
           <form className="inline-add-box" onSubmit={handleAddGroup}>
             <div className="field-grid-2">
-              <input
-                type="text"
-                placeholder="ID группы (snake_case)"
-                value={groupId}
-                onChange={(e) => setGroupId(e.target.value)}
-              />
+              <AutomaticId value={generateId('group', groupTitle, project.reasoning_groups.map((item) => item.id))} />
               <input
                 type="text"
                 placeholder="Название группы на развороте"
@@ -444,7 +425,8 @@ export const VariablesAndGlossaryEditor: React.FC<{
                   <label>Варианты выводов игрока (options):</label>
                   {grp.options.map((opt, idx) => (
                     <div key={opt.id} className="option-edit-row">
-                      <code>{opt.id}</code>
+                      <AutomaticId value={opt.id} />
+                      <label>Название вывода<input value={opt.title || ''} onChange={(e) => updateReasoningGroup(grp.id, { options: grp.options.map((o) => o.id === opt.id ? { ...o, title: e.target.value } : o) })} /></label>
                       <input
                         type="text"
                         value={opt.text}

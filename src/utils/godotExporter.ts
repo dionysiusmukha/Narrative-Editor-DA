@@ -109,6 +109,8 @@ export function compileGodotFiles(project: NarrativeProject): ExportedGodotFile[
       test_content: false,
       id: char.id,
       name: char.name,
+      ...(char.unknown_name ? { unknown_name: char.unknown_name } : {}),
+      ...(char.name_rules?.length ? { name_rules: char.name_rules } : {}),
       role: char.role,
       biography: char.biography,
       personality: char.personality,
@@ -148,6 +150,7 @@ export function compileGodotFiles(project: NarrativeProject): ExportedGodotFile[
           character_id: dlg.character_id,
           title: dlg.title,
           start_node: dlg.start_node,
+          ...(dlg.starts?.length ? { starts: dlg.starts } : {}),
           allow_cycles: dlg.allow_cycles,
         };
         if (dlg.allow_cycles && dlg.cycle_note) {

@@ -65,13 +65,14 @@ export function memoryReferences(project: NarrativeProject, eventId: string, rec
     keys.add(`fact_${eventId}`);
     if (project.narrative_events?.length === 1) keys.add('narrative_shift');
   }
-  const dialogues = project.dialogues.filter((dialogue) => dialogue.nodes.some((node) =>
+  const dialogues = project.dialogues.filter((dialogue) => (removingEvent && dialogue.starts?.some((start) => [...start.required_events, ...start.excluded_events].includes(eventId))) || dialogue.nodes.some((node) =>
     (removingEvent && (node.effects || []).some((effect) => effect.type === 'npc_event' && effect.event === 'remember' && effect.arg === eventId)) ||
     node.choices.some((choice) => (choice.conditions || []).some((condition) => keys.has(condition.variable_id)))));
   const testimony = (project.narrative_events || []).filter((event) => !removingEvent || event.id !== eventId)
     .flatMap((event) => event.records.filter((record) => record.kind === 'testimony' &&
       ((removingEvent && record.event_id === eventId) || record.related.some((id) => keys.has(id)))));
-  return { dialogues, testimony };
+  const nameRules = removingEvent ? project.characters.filter((character) => character.name_rules?.some((rule) => [...rule.required_events, ...rule.excluded_events].includes(eventId))) : [];
+  return { dialogues, testimony, nameRules };
 }
 
 export function validateMemoryProject(project: NarrativeProject): ValidationIssue[] {

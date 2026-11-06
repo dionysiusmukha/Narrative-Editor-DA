@@ -108,3 +108,22 @@ test('неизменённый проект даёт шесть прежних �
     assert.equal(fs.existsSync(path.join(directory, 'content/narrative')), false);
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 });
+
+
+test('editor titles survive save/import without changing the Godot export contract', () => {
+  const titled = structuredClone(sample);
+  for (const event of titled.narrative_events) {
+    event.title = 'Название события';
+    for (const record of event.records) record.title = 'Название записи';
+  }
+  for (const doc of titled.dialogues) for (const node of doc.nodes) {
+    node.title = 'Название реплики';
+    for (const choice of node.choices) choice.title = 'Название ответа';
+    for (const effect of node.effects || []) effect.title = 'Название эффекта';
+  }
+  const restored = JSON.parse(JSON.stringify(titled));
+  assert.doesNotThrow(() => assertProjectShape(restored));
+  assert.equal(restored.narrative_events[0].records[0].title, 'Название записи');
+  assert.deepEqual(compileGodotFiles(restored), compileGodotFiles(sample));
+  assert.deepEqual(validateProject(restored), []);
+});

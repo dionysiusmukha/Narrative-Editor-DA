@@ -1,3 +1,7 @@
+import { EventGateEditor } from './EventGateEditor';
+import { characterId } from '../utils/ids';
+import { AutomaticId } from './AutomaticId';
+import { generateId } from '../utils/ids';
 import React, { useState } from 'react';
 import { MemoryEditor } from './MemoryEditor';
 import {
@@ -30,7 +34,6 @@ export const CharacterEditor: React.FC = () => {
     removeRelationship,
   } = useNarrativeStore();
 
-  const [newCharId, setNewCharId] = useState('');
   const [newCharName, setNewCharName] = useState('');
   const [relTargetId, setRelTargetId] = useState('');
 
@@ -40,7 +43,7 @@ export const CharacterEditor: React.FC = () => {
 
   const handleCreateCharacter = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanId = newCharId.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    const cleanId = generateId('character', newCharName, project.characters.map((item) => item.id));
     if (!cleanId || !isValidSnakeCaseId(cleanId)) return;
     if (project.characters.some((c) => c.id === cleanId)) return;
 
@@ -58,7 +61,6 @@ export const CharacterEditor: React.FC = () => {
       relationships: [],
       avatar_color: '#38bdf8',
     });
-    setNewCharId('');
     setNewCharName('');
   };
 
@@ -129,12 +131,7 @@ export const CharacterEditor: React.FC = () => {
 
         <form className="add-form" onSubmit={handleCreateCharacter}>
           <h4>Новый персонаж</h4>
-          <input
-            type="text"
-            placeholder="ID (snake_case, напр. arkadiy)"
-            value={newCharId}
-            onChange={(e) => setNewCharId(e.target.value)}
-          />
+          <AutomaticId value={generateId('character', newCharName, project.characters.map((item) => item.id))} />
           <input
             type="text"
             placeholder="Имя (напр. Аркадий)"
@@ -176,6 +173,19 @@ export const CharacterEditor: React.FC = () => {
           <details className="card memory-details" key={selectedChar.id}>
             <summary>Память, знания, убеждения и свидетельства</summary>
             <MemoryEditor characterId={selectedChar.id} />
+          </details>
+          <details className="card"><summary>Имя, которое знает игрок</summary>
+            <label>Имя до знакомства<input placeholder="Например: Незнакомец" value={selectedChar.unknown_name || ''} onChange={(e) => updateCharacter(selectedChar.id, { unknown_name: e.target.value })} /></label>
+            <p>Основное имя выше используется для авторских данных и ID. Здесь задаются имена, видимые игроку. Событие знакомства может произойти в диалоге любого персонажа.</p>
+            <button className="btn btn-secondary" onClick={() => updateCharacter(selectedChar.id, { name_rules: [...(selectedChar.name_rules || []), { id: characterId('name', selectedChar.name, 'Новое имя', selectedChar.name_rules?.map((x) => x.id)), name: selectedChar.name, required_events: [], excluded_events: [], min_shift: 1 }] })}>+ Вариант имени</button>
+            {(selectedChar.name_rules || []).map((rule, index) => {
+              const patch = (values: Partial<typeof rule>) => updateCharacter(selectedChar.id, { name_rules: selectedChar.name_rules!.map((x) => x.id === rule.id ? { ...x, ...values } : x) });
+              return <div className="subcard" key={rule.id}><label>Отображаемое имя<input value={rule.name} onChange={(e) => patch({ name: e.target.value })} /></label>
+                <EventGateEditor project={project} value={rule} onChange={patch} />
+                <button className="btn btn-secondary" disabled={!index} onClick={() => { const rules = [...selectedChar.name_rules!]; [rules[index - 1], rules[index]] = [rules[index], rules[index - 1]]; updateCharacter(selectedChar.id, { name_rules: rules }); }}>Выше по приоритету</button>
+                <button className="btn btn-danger" onClick={() => updateCharacter(selectedChar.id, { name_rules: selectedChar.name_rules!.filter((x) => x.id !== rule.id) })}>Удалить имя</button>
+              </div>;
+            })}
           </details>
           <div className="form-grid-2">
             <div className="card">

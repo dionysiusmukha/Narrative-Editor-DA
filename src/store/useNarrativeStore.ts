@@ -1,3 +1,5 @@
+import { characterId } from '../utils/ids';
+import { generateId } from '../utils/ids';
 import { create } from 'zustand';
 import {
   CharacterRelationship,
@@ -382,14 +384,12 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
         (c) => c.id === (dlg?.character_id || state.selectedCharacterId)
       );
       const index = (dlg?.nodes.length || 0) + 1;
-      let newId = nodePatch?.id || `node_${index}`;
-      while (dlg?.nodes.some((n) => n.id === newId)) {
-        newId = `${newId}_${Math.floor(Math.random() * 90 + 10)}`;
-      }
+      const newId = characterId('node', char?.name || dlg?.character_id || 'Персонаж', nodePatch?.title || (nodePatch?.end ? 'Завершение разговора' : 'Новая реплика персонажа'), dlg?.nodes.map((n) => n.id));
 
       const isEnd = nodePatch?.end ?? false;
       const newNode: DialogueNode = {
         id: newId,
+        title: nodePatch?.title || (isEnd ? 'Завершение разговора' : 'Новая реплика персонажа'),
         speaker: nodePatch?.speaker || char?.name || 'Аркадий',
         character_id: nodePatch?.character_id || char?.id || 'arkadiy',
         emotion: nodePatch?.emotion || char?.default_emotion || 'neutral',
@@ -400,7 +400,7 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
           ? []
           : nodePatch?.choices || [
               {
-                id: 'continue',
+                id: characterId('choice', char?.name || 'Персонаж', 'Продолжить'), title: 'Продолжить',
                 text: 'Продолжить...',
                 target: dlg?.nodes.find((n) => n.end)?.id || newId,
                 required_terms: [],
@@ -446,7 +446,7 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
                     d.nodes.find((other) => other.id !== nodeId)?.id || nodeId;
                   updated.choices = [
                     {
-                      id: 'reply_1',
+                      id: characterId('choice', state.project.characters.find((c) => c.id === d.character_id)?.name || d.character_id, 'Ответ игрока'), title: 'Ответ игрока',
                       text: 'Ответить...',
                       target: fallbackTarget,
                       required_terms: [],
@@ -475,6 +475,7 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             return {
               ...d,
               start_node: d.start_node === oldId ? newId : d.start_node,
+              starts: d.starts?.map((start) => start.node_id === oldId ? { ...start, node_id: newId } : start),
               nodes: d.nodes.map((n) => ({
                 ...n,
                 id: n.id === oldId ? newId : n.id,
@@ -550,11 +551,7 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
               ...d,
               nodes: d.nodes.map((n) => {
                 if (n.id !== nodeId) return n;
-                const idx = n.choices.length + 1;
-                let choiceId = `choice_${idx}`;
-                while (n.choices.some((c) => c.id === choiceId)) {
-                  choiceId = `choice_${idx}_${Math.floor(Math.random() * 90 + 10)}`;
-                }
+                const choiceId = characterId('choice', state.project.characters.find((c) => c.id === d.character_id)?.name || d.character_id, 'Вариант ответа игрока', n.choices.map((c) => c.id));
                 return {
                   ...n,
                   end: false,
@@ -562,6 +559,7 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
                     ...n.choices,
                     {
                       id: choiceId,
+                      title: 'Вариант ответа игрока',
                       text: 'Вариант ответа игрока...',
                       target: defaultTarget,
                       required_terms: [],
@@ -658,10 +656,9 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
               ...d,
               nodes: d.nodes.map((n) => {
                 if (n.id !== nodeId) return n;
-                const idx = n.effects.length + 1;
-                const effectId =
-                  effectPatch?.effect_id || `${nodeId}_effect_${idx}_${Date.now() % 1000}`;
+                const effectId = characterId('effect', state.project.characters.find((c) => c.id === d.character_id)?.name || d.character_id, effectPatch?.title || 'Новый эффект', d.nodes.flatMap((node) => node.effects.map((e) => e.effect_id)));
                 const newEffect: DialogueEffect = {
+                  title: effectPatch?.title || 'Новый эффект',
                   effect_id: effectId.replace(/[^a-z0-9_]/g, '_'),
                   type: effectPatch?.type || 'grant_term',
                   term_id:
@@ -748,7 +745,7 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             ...d,
             nodes: d.nodes.map((n) => {
               if (n.id !== nodeId) return n;
-              const effectId = `grant_${termId}_${n.id}`;
+              const effectId = characterId('effect', state.project.characters.find((c) => c.id === d.character_id)?.name || d.character_id, `Выдать термин ${termTitle}`, d.nodes.flatMap((node) => node.effects.map((e) => e.effect_id)));
               if (n.effects.some((e) => e.type === 'grant_term' && e.term_id === termId)) {
                 return n;
               }
@@ -758,6 +755,7 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
                   ...n.effects,
                   {
                     effect_id: effectId,
+                    title: `Выдать термин ${termTitle}`,
                     type: 'grant_term' as const,
                     term_id: termId,
                   },

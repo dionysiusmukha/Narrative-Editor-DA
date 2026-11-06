@@ -230,6 +230,7 @@ code {
   background: rgba(239, 68, 68, 0.12);
 }
 
+input:not([type]),
 input[type='text'],
 input[type='number'],
 select,
@@ -1272,3 +1273,16 @@ textarea:focus {
 .memory-inspector-group { border-top: 1px solid var(--border); padding-top: 6px; }
 .memory-inspector-group p { margin: 4px 0; }
 .memory-status { padding: 8px 10px; background: var(--bg-input); border-radius: 6px; }
+
+.automatic-id { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; color: var(--text-muted); overflow-wrap: anywhere; cursor: default; }
+.automatic-id code { user-select: all; font-size: 12px; }
+
+.event-gate-editor { display: grid; gap: 10px; margin: 12px 0; }
+.event-gate-editor label, .dialogue-create-form label, .start-picker label { display: grid; gap: 5px; }
+.event-gate-editor .checkbox-inline { display: flex; align-items: center; gap: 7px; }
+.event-gate-editor fieldset { border: 1px solid var(--border); border-radius: 6px; padding: 10px; max-height: 220px; overflow: auto; }
+.dialogue-create-form { margin: 12px; display: grid; gap: 12px; }
+.dialogue-create-form .field-grid-2 { align-items: start; }
+.dialogue-starts .subcard, .start-picker .subcard { margin-top: 12px; }
+.start-picker .btn { margin: 5px; }
+.graph-toolbar .toolbar-group { flex-wrap: wrap; }

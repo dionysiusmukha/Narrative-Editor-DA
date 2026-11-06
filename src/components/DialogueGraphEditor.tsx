@@ -1,3 +1,7 @@
+import { EventGateEditor } from './EventGateEditor';
+import { characterId } from '../utils/ids';
+import { AutomaticId } from './AutomaticId';
+import { generateId } from '../utils/ids';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ReactFlow,
@@ -68,7 +72,6 @@ export const DialogueGraphEditor: React.FC = () => {
     updateDialogueMeta,
     addDialogueNode,
     updateDialogueNode,
-    renameDialogueNodeId,
     updateNodePosition,
     deleteDialogueNode,
     addChoice,
@@ -82,9 +85,9 @@ export const DialogueGraphEditor: React.FC = () => {
     setActiveTab,
   } = useNarrativeStore();
 
-  const [newDlgId, setNewDlgId] = useState('');
+  const [creatingDialogue, setCreatingDialogue] = useState(false);
+  const [newDlgCharacter, setNewDlgCharacter] = useState(project.characters[0]?.id || '');
   const [newDlgTitle, setNewDlgTitle] = useState('');
-  const [editingNodeIdText, setEditingNodeIdText] = useState<string | null>(null);
 
   const currentDialogue =
     project.dialogues.find((d) => d.id === selectedDialogueId) ||
@@ -132,7 +135,7 @@ export const DialogueGraphEditor: React.FC = () => {
         position: node.position || { x: 100, y: 100 },
         data: {
           node,
-          isStart: currentDialogue.start_node === node.id,
+          isStart: currentDialogue.start_node === node.id || !!currentDialogue.starts?.some((start) => start.node_id === node.id),
           isSelected: selectedNodeId === node.id,
           avatarColor: char?.avatar_color || '#38bdf8',
           issues: nodeIssues,
@@ -224,21 +227,22 @@ export const DialogueGraphEditor: React.FC = () => {
 
   const handleCreateNewDialogue = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanId = newDlgId.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    const cleanId = characterId('dialogue', project.characters.find((c) => c.id === newDlgCharacter)?.name || newDlgCharacter, newDlgTitle, project.dialogues.map((item) => item.id));
     if (!cleanId || !isValidSnakeCaseId(cleanId)) return;
     if (project.dialogues.some((d) => d.id === cleanId)) return;
 
-    const char = project.characters[0];
+    const char = project.characters.find((c) => c.id === newDlgCharacter);
+    if (!char || !newDlgTitle.trim()) return;
     addDialogue({
       id: cleanId,
       character_id: char?.id || 'arkadiy',
       title: newDlgTitle.trim() || `Диалог: ${cleanId}`,
-      start_node: 'opening',
+      start_node: characterId('node', char.name, 'Начальная реплика'),
       allow_cycles: false,
       test_content: false,
       nodes: [
         {
-          id: 'opening',
+          id: characterId('node', char.name, 'Начальная реплика'), title: 'Начальная реплика',
           speaker: char?.name || 'Аркадий',
           character_id: char?.id || 'arkadiy',
           emotion: 'neutral',
@@ -248,9 +252,9 @@ export const DialogueGraphEditor: React.FC = () => {
           effects: [],
           choices: [
             {
-              id: 'leave',
+              id: characterId('choice', char.name, 'Закончить разговор'), title: 'Закончить разговор',
               text: 'Закончить разговор',
-              target: 'goodbye',
+              target: characterId('node', char.name, 'Завершение разговора'),
               required_terms: [],
               required_conclusions: [],
               conditions: [],
@@ -258,7 +262,7 @@ export const DialogueGraphEditor: React.FC = () => {
           ],
         },
         {
-          id: 'goodbye',
+          id: characterId('node', char.name, 'Завершение разговора'), title: 'Завершение разговора',
           speaker: char?.name || 'Аркадий',
           character_id: char?.id || 'arkadiy',
           emotion: 'neutral',
@@ -270,20 +274,49 @@ export const DialogueGraphEditor: React.FC = () => {
         },
       ],
     });
-    setNewDlgId('');
     setNewDlgTitle('');
+    setCreatingDialogue(false);
   };
 
   if (!currentDialogue) {
-    return <div className="page-container">Нет диалогов.</div>;
+    return <div className="page-container">          <form className="card dialogue-create-form" onSubmit={handleCreateNewDialogue}>
+            <h3>Новый диалог</h3><label>Персонаж<select value={newDlgCharacter} onChange={(e) => setNewDlgCharacter(e.target.value)}>{project.characters.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+            <div className="field-grid-2">
+              <AutomaticId value={characterId('dialogue', project.characters.find((c) => c.id === newDlgCharacter)?.name || newDlgCharacter, newDlgTitle, project.dialogues.map((item) => item.id))} />
+              <input
+                type="text"
+                placeholder="Название диалога"
+                required value={newDlgTitle}
+                onChange={(e) => setNewDlgTitle(e.target.value)}
+              />
+            </div>
+            <button type="submit" className="btn btn-secondary btn-sm">
+              <Plus size={13} /> Добавить диалог
+            </button>
+          <button type="button" className="btn btn-secondary" onClick={() => setCreatingDialogue(false)}>Отмена</button></form></div>;
   }
 
   return (
     <div className="graph-workspace">
+{creatingDialogue &&           <form className="card dialogue-create-form" onSubmit={handleCreateNewDialogue}>
+            <h3>Новый диалог</h3><label>Персонаж<select value={newDlgCharacter} onChange={(e) => setNewDlgCharacter(e.target.value)}>{project.characters.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+            <div className="field-grid-2">
+              <AutomaticId value={characterId('dialogue', project.characters.find((c) => c.id === newDlgCharacter)?.name || newDlgCharacter, newDlgTitle, project.dialogues.map((item) => item.id))} />
+              <input
+                type="text"
+                placeholder="Название диалога"
+                required value={newDlgTitle}
+                onChange={(e) => setNewDlgTitle(e.target.value)}
+              />
+            </div>
+            <button type="submit" className="btn btn-secondary btn-sm">
+              <Plus size={13} /> Добавить диалог
+            </button>
+          <button type="button" className="btn btn-secondary" onClick={() => setCreatingDialogue(false)}>Отмена</button></form>}
       {/* Top Dialogue Bar */}
       <div className="graph-toolbar">
         <div className="toolbar-group">
-          <label>Диалог:</label>
+          <button className="btn btn-primary" onClick={() => setCreatingDialogue(!creatingDialogue)}>+ Новый диалог</button><label>Диалог:</label>
           <select
             className="dialogue-select"
             value={currentDialogue.id}
@@ -369,7 +402,6 @@ export const DialogueGraphEditor: React.FC = () => {
             onConnect={handleConnect}
             onNodeClick={(_, node) => {
               setSelectedNodeId(node.id);
-              setEditingNodeIdText(null);
             }}
             fitView
             minZoom={0.25}
@@ -456,6 +488,20 @@ export const DialogueGraphEditor: React.FC = () => {
                 </label>
               </div>
             </div>
+            <details className="dialogue-starts"><summary>Старты и предусловия ({currentDialogue.starts?.length || 0})</summary>
+              <p>Задайте отдельный старт для каждой встречи. Если несколько подходят, первым считается верхний. Обычный начальный узел используется, пока список пуст.</p>
+              <button className="btn btn-secondary" onClick={() => updateDialogueMeta(currentDialogue.id, { starts: [...(currentDialogue.starts || []), { id: characterId('start', project.characters.find((c) => c.id === currentDialogue.character_id)?.name || currentDialogue.character_id, 'Новый старт', currentDialogue.starts?.map((x) => x.id)), title: 'Новый старт', node_id: selectedNode?.id || currentDialogue.start_node, required_events: [], excluded_events: [], min_shift: 1 }] })}>+ Старт</button>
+              {(currentDialogue.starts || []).map((start, index) => {
+                const patch = (values: Partial<typeof start>) => updateDialogueMeta(currentDialogue.id, { starts: currentDialogue.starts!.map((x) => x.id === start.id ? { ...x, ...values } : x) });
+                return <div className="subcard" key={start.id}>
+                  <label>Название старта<input value={start.title} onChange={(e) => patch({ title: e.target.value })} /></label><AutomaticId value={start.id} />
+                  <label>Первая реплика<select value={start.node_id} onChange={(e) => patch({ node_id: e.target.value })}>{currentDialogue.nodes.map((n) => <option key={n.id} value={n.id}>{n.title || n.id}</option>)}</select></label>
+                  <EventGateEditor project={project} value={start} onChange={patch} />
+                  <button className="btn btn-secondary" disabled={!index} onClick={() => { const starts = [...currentDialogue.starts!]; [starts[index - 1], starts[index]] = [starts[index], starts[index - 1]]; updateDialogueMeta(currentDialogue.id, { starts }); }}>Выше по приоритету</button>
+                  <button className="btn btn-danger" onClick={() => updateDialogueMeta(currentDialogue.id, { starts: currentDialogue.starts!.filter((x) => x.id !== start.id) })}>Удалить старт</button>
+                </div>;
+              })}
+            </details>
             {currentDialogue.allow_cycles && (
               <div className="field-row">
                 <label>Описание цикла (cycle_note — обязательно для Godot)</label>
@@ -510,31 +556,9 @@ export const DialogueGraphEditor: React.FC = () => {
               {/* Node ID Rename & Speaker & Emotion */}
               <div className="field-grid-2">
                 <div className="field-row">
-                  <label>ID узла (snake_case)</label>
-                  <div className="inline-controls">
-                    <input
-                      type="text"
-                      value={
-                        editingNodeIdText !== null
-                          ? editingNodeIdText
-                          : selectedNode.id
-                      }
-                      onChange={(e) => setEditingNodeIdText(e.target.value)}
-                      onBlur={() => {
-                        if (
-                          editingNodeIdText &&
-                          isValidSnakeCaseId(editingNodeIdText)
-                        ) {
-                          renameDialogueNodeId(
-                            currentDialogue.id,
-                            selectedNode.id,
-                            editingNodeIdText
-                          );
-                        }
-                        setEditingNodeIdText(null);
-                      }}
-                    />
-                  </div>
+                  <label>Название реплики</label>
+                  <input value={selectedNode.title || ''} onChange={(e) => updateDialogueNode(currentDialogue.id, selectedNode.id, { title: e.target.value })} />
+                  <AutomaticId value={selectedNode.id} />
                 </div>
                 <div className="field-row">
                   <label>Эмоция (VisitorModel.react)</label>
@@ -613,16 +637,7 @@ export const DialogueGraphEditor: React.FC = () => {
                         type="button"
                         className="chip"
                         onClick={() => {
-                          const suggestedId =
-                            prompt(
-                              `Введите snake_case ID термина для "${word}":`,
-                              'new_term'
-                            ) || '';
-                          const clean = suggestedId
-                            .trim()
-                            .toLowerCase()
-                            .replace(/[^a-z0-9_]/g, '_');
-                          if (!clean || !isValidSnakeCaseId(clean)) return;
+                          const clean = characterId('term', project.characters.find((c) => c.id === currentDialogue.character_id)?.name || currentDialogue.character_id, word, project.terms.map((t) => t.id));
                           quickGrantTermOnNode(
                             currentDialogue.id,
                             selectedNode.id,
@@ -707,6 +722,7 @@ export const DialogueGraphEditor: React.FC = () => {
                           </button>
                         </div>
 
+                        <label>Название эффекта<input value={ef.title || ''} onChange={(e) => updateEffect(currentDialogue.id, selectedNode.id, ef.effect_id, { title: e.target.value })} /></label>
                         {ef.type === 'grant_term' && (
                           <div className="field-row">
                             <label>Термин словаря (term_id)</label>
@@ -958,8 +974,9 @@ export const DialogueGraphEditor: React.FC = () => {
                   <div className="choices-editor-list">
                     {selectedNode.choices.map((ch) => (
                       <div key={ch.id} className="subcard choice-subcard">
+                        <label>Название ответа<input value={ch.title || ''} onChange={(e) => updateChoice(currentDialogue.id, selectedNode.id, ch.id, { title: e.target.value })} /></label>
                         <div className="subcard-top">
-                          <code>ID: {ch.id}</code>
+                          <AutomaticId value={ch.id} />
                           <button
                             type="button"
                             className="btn-icon"
@@ -1216,26 +1233,7 @@ export const DialogueGraphEditor: React.FC = () => {
           )}
 
           {/* Create New Dialogue Footer */}
-          <form className="inspector-footer-form" onSubmit={handleCreateNewDialogue}>
-            <h4>Создать новый диалог</h4>
-            <div className="field-grid-2">
-              <input
-                type="text"
-                placeholder="ID (snake_case)"
-                value={newDlgId}
-                onChange={(e) => setNewDlgId(e.target.value)}
-              />
-              <input
-                type="text"
-                placeholder="Название диалога"
-                value={newDlgTitle}
-                onChange={(e) => setNewDlgTitle(e.target.value)}
-              />
-            </div>
-            <button type="submit" className="btn btn-secondary btn-sm">
-              <Plus size={13} /> Добавить диалог
-            </button>
-          </form>
+
         </aside>
       </div>
     </div>
