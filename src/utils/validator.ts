@@ -5,6 +5,8 @@ import type {
 } from '../types/narrative.ts';
 import { computedConditions, validateMemoryProject } from './npcMemory.ts';
 
+import { validateJournal } from './journal.ts';
+
 const SNAKE_CASE_REGEX = /^[a-z][a-z0-9_]*$/;
 
 export function isValidSnakeCaseId(id: string): boolean {
@@ -12,7 +14,7 @@ export function isValidSnakeCaseId(id: string): boolean {
 }
 
 export function validateProject(project: NarrativeProject): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
+  const issues: ValidationIssue[] = validateJournal(project);
   const characterIds = new Set<string>();
   for (const character of project.characters) {
     if (!isValidSnakeCaseId(character.id) || characterIds.has(character.id)) {

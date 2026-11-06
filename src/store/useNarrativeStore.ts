@@ -16,6 +16,7 @@ import { validateProject } from '../utils/validator';
 import { assertProjectShape } from '../utils/projectImport';
 
 export type EditorTab =
+  | 'journal'
   | 'characters'
   | 'dialogues'
   | 'variables'
@@ -32,7 +33,7 @@ interface SyncStatus {
 
 interface NarrativeStoreState {
   project: NarrativeProject;
-  updateNarrative: (patch: Pick<Partial<NarrativeProject>, 'narrative_events' | 'testimony_links'>) => void;
+  updateNarrative: (patch: Pick<Partial<NarrativeProject>, 'narrative_events' | 'testimony_links' | 'journal_layout'>) => void;
   activeTab: EditorTab;
   selectedCharacterId: string;
   selectedDialogueId: string;

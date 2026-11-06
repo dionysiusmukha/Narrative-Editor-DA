@@ -41,3 +41,7 @@ npm run export-godot
 - [Интеграция с Godot](docs/GODOT_INTEGRATION.md)
 
 Проверки запускаются командами `npm test` и `npm run build`.
+
+## Визуальные страницы дневника
+
+Новый раздел «Дневник → Компоновка страниц»: [инструкция, TEST и ограничения первого среза](docs/JOURNAL_EDITOR.md). [Передача](docs/HANDOFF.md), [состояние](docs/STATUS.md).

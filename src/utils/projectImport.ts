@@ -1,5 +1,7 @@
 import type { NarrativeProject } from '../types/narrative.ts';
 
+import { journalShapeErrors } from './journal.ts';
+
 function object(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
@@ -10,6 +12,7 @@ function objects(value: unknown): value is Record<string, unknown>[] {
 
 export function assertProjectShape(value: unknown): asserts value is NarrativeProject {
   if (!object(value) || value.schema_version !== 1) throw new Error('Ожидается project.narrative.json версии 1');
+  if (value.journal_layout !== undefined) { const errors = journalShapeErrors(value.journal_layout); if(errors.length) throw new Error(errors[0]); }
   for (const key of ['characters', 'variables', 'terms', 'reasoning_groups', 'reasoning_links', 'journal_recipes', 'dialogues']) {
     if (!objects(value[key])) throw new Error(`${key}: ожидается массив объектов`);
   }

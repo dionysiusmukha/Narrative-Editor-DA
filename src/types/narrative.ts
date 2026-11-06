@@ -154,6 +154,7 @@ export interface DialogueDocument {
 }
 
 export interface NarrativeProject {
+  journal_layout?: import('./journal').JournalLayout;
   schema_version: 1;
   project_name: string;
   godot_project_path: string;

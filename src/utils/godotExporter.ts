@@ -212,6 +212,7 @@ export function compileGodotFiles(project: NarrativeProject): ExportedGodotFile[
     });
   }
 
+  if (project.journal_layout) files.push({relativePath: 'content/journal/journal_layout.json', description: 'Авторские страницы дневника · контракт 1', content: JSON.stringify(project.journal_layout, null, 2) + '\n'});
   const memory = compileMemoryFile(project);
   if (memory) files.push(memory);
   return files;

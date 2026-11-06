@@ -1,3 +1,4 @@
+import { JournalEditor } from './components/journal/JournalEditor';
 import React, { useEffect } from 'react';
 import { useNarrativeStore, EditorTab } from './store/useNarrativeStore';
 import { CharacterEditor } from './components/CharacterEditor';
@@ -37,6 +38,7 @@ export const App: React.FC = () => {
     icon: React.ReactNode;
     badge?: number;
   }> = [
+    { id: 'journal', label: 'Дневник → Компоновка страниц', icon: <BookOpen size={16} /> },
     { id: 'events', label: 'События', icon: <BookOpen size={16} />, badge: project.narrative_events?.length },
     {
       id: 'characters',
@@ -127,6 +129,7 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="app-main">
+        {activeTab === 'journal' && <JournalEditor />}
         {activeTab === 'characters' && <CharacterEditor />}
         {activeTab === 'events' && <MemoryEditor />}
         {activeTab === 'dialogues' && <DialogueGraphEditor />}

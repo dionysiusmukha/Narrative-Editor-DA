@@ -1,0 +1,787 @@
+{
+  "schema_version": 1,
+  "project_name": "[TEST] Северный сектор — авторские страницы",
+  "godot_project_path": "c:\\Dev\\Dark-Alone",
+  "characters": [
+    {
+      "id": "arkadiy",
+      "name": "Аркадий",
+      "role": "Старший диспетчер Северного створа",
+      "biography": "Двадцать два года проработал на узловой сортировке Северного створа. Знает расписание каждого ночного эшелона наизусть. Месяц назад его перевели в архивную смену после исчезновения вагона со спецгрузом.",
+      "personality": "Сдержанный, недоверчивый, говорит сухо и по делу. Не любит суеты, всегда садится у правого края стойки, чтобы видеть вход.",
+      "motivation": "Понять, проверяет ли его бармен по заданию инспекции, и решить — можно ли оставить в баре ключ от закрытого ящика с путевыми листами.",
+      "secrets": "В ночь аварии на Тупиковой ветке Аркадий лично перевёл стрелку по устному приказу сверху, а оригинал журнала дежурств спрятал под обшивкой в подсобке.",
+      "default_emotion": "tense",
+      "available_emotions": [
+        "neutral",
+        "interested",
+        "thoughtful",
+        "tense",
+        "disagree"
+      ],
+      "preferences": [
+        "test_stvor",
+        "test_shot"
+      ],
+      "avatar_color": "#38bdf8",
+      "relationships": [
+        {
+          "target_id": "bartender",
+          "trust": 0,
+          "conflict": 2,
+          "hidden": false,
+          "note": "Изучает нового бармена: проверяет, помнит ли тот старые привычки железнодорожников."
+        },
+        {
+          "target_id": "inspector_voronov",
+          "trust": -5,
+          "conflict": 8,
+          "hidden": true,
+          "note": "Боится ревизии Воронова после инцидента на Тупиковой ветке."
+        }
+      ]
+    },
+    {
+      "id": "bartender",
+      "name": "Бармен",
+      "role": "Хозяин ночной смены",
+      "biography": "Ведёт ночные смены в баре у сортировочной станции. Слушает гостей, ведёт личный дневник наблюдений.",
+      "personality": "Немногословный, внимательный к деталям.",
+      "motivation": "Собрать картину происходящего в районе из обрывков чужих разговоров.",
+      "secrets": "Хранит записи о каждом госте в личном бумажном дневнике.",
+      "default_emotion": "neutral",
+      "available_emotions": [
+        "neutral",
+        "thoughtful"
+      ],
+      "preferences": [
+        "test_water"
+      ],
+      "avatar_color": "#94a3b8",
+      "relationships": []
+    },
+    {
+      "id": "inspector_voronov",
+      "name": "Инспектор Воронов",
+      "role": "Следователь линейного контроля",
+      "biography": "Курирует расследование пропавших составов на Северном створе.",
+      "personality": "Холодный, методичный, давит молчанием.",
+      "motivation": "Найти пропавший журнал ночной диспетчерской.",
+      "secrets": "Его подпись стоит на закрытом допуске того самого состава.",
+      "default_emotion": "tense",
+      "available_emotions": [
+        "neutral",
+        "tense",
+        "disagree"
+      ],
+      "preferences": [
+        "test_heavy",
+        "test_glass"
+      ],
+      "avatar_color": "#f87171",
+      "relationships": []
+    }
+  ],
+  "variables": [
+    {
+      "id": "arkadiy_trust",
+      "title": "Доверие Аркадия",
+      "type": "number",
+      "default_value": 0,
+      "min": -5,
+      "max": 10,
+      "category": "relationship",
+      "character_id": "arkadiy",
+      "description": "Насколько Аркадий доверяет бармену в разговоре за стойкой."
+    },
+    {
+      "id": "arkadiy_mood",
+      "title": "Состояние Аркадия",
+      "type": "string",
+      "default_value": "guarded",
+      "enum_values": [
+        "guarded",
+        "open",
+        "suspicious"
+      ],
+      "category": "character_state",
+      "character_id": "arkadiy",
+      "description": "Текущий эмоциональный настрой Аркадия."
+    },
+    {
+      "id": "arkadiy_ordered_stvor",
+      "title": "Аркадий попросил Северный створ",
+      "type": "boolean",
+      "default_value": false,
+      "category": "event",
+      "character_id": "arkadiy",
+      "description": "Флаг: Аркадий намекнул на рюмку Северного створа."
+    },
+    {
+      "id": "arkadiy_shared_secret",
+      "title": "Аркадий упомянул опечатанный архив",
+      "type": "boolean",
+      "default_value": false,
+      "category": "player_decision",
+      "character_id": "arkadiy",
+      "description": "Флаг: игрок вывел Аркадия на откровенный разговор об архиве."
+    }
+  ],
+  "terms": [
+    {
+      "id": "north_gate",
+      "title": "У ворот",
+      "description": "«Ворота закрыли до заката». — рассказ посетителя А"
+    },
+    {
+      "id": "north_clock",
+      "title": "Часы",
+      "description": "«Я слышал сирену уже в темноте». — рассказ посетителя Б"
+    },
+    {
+      "id": "north_supply",
+      "title": "Поставка",
+      "description": "«Ящики привезли после сирены». — запись со слов А"
+    },
+    {
+      "id": "north_route",
+      "title": "Обход",
+      "description": "«До сирены груз уже был внутри». — запись со слов Б"
+    },
+    {
+      "id": "north_word",
+      "title": "Створ",
+      "description": "Слово «створ» встречается в двух рассказах. Значение пока предполагаемое."
+    },
+    {
+      "id": "north_stamp",
+      "title": "Печать",
+      "description": "На накладной упомянута старая печать. Это наблюдение, а не доказательство."
+    }
+  ],
+  "reasoning_groups": [
+    {
+      "id": "north_time",
+      "title": "Время у ворот",
+      "terms": [
+        "north_gate",
+        "north_clock"
+      ],
+      "minimum_terms": 2,
+      "sheet": 0,
+      "position": [
+        0.3,
+        0.3
+      ],
+      "options": [
+        {
+          "id": "north_early",
+          "text": "Возможно, ворота закрыли раньше."
+        },
+        {
+          "id": "north_late",
+          "text": "Возможно, посетитель путает время."
+        }
+      ]
+    },
+    {
+      "id": "north_cargo",
+      "title": "Ящики",
+      "terms": [
+        "north_supply",
+        "north_route"
+      ],
+      "minimum_terms": 2,
+      "sheet": 0,
+      "position": [
+        0.3,
+        0.3
+      ],
+      "options": [
+        {
+          "id": "north_delivery",
+          "text": "Поставка могла идти в обход."
+        },
+        {
+          "id": "north_rumour",
+          "text": "Пока это только разные рассказы."
+        }
+      ]
+    },
+    {
+      "id": "north_language",
+      "title": "Слово и печать",
+      "terms": [
+        "north_word",
+        "north_stamp"
+      ],
+      "minimum_terms": 2,
+      "sheet": 1,
+      "position": [
+        0.3,
+        0.3
+      ],
+      "options": [
+        {
+          "id": "north_passage",
+          "text": "«Створ» может означать проход."
+        },
+        {
+          "id": "north_service",
+          "text": "«Створ» может быть названием службы."
+        }
+      ]
+    },
+    {
+      "id": "north_summary",
+      "title": "Общая мысль",
+      "terms": [
+        "north_gate",
+        "north_supply"
+      ],
+      "minimum_terms": 2,
+      "sheet": 1,
+      "position": [
+        0.3,
+        0.3
+      ],
+      "options": [
+        {
+          "id": "north_question",
+          "text": "Нужно спросить о времени разгрузки.",
+          "required_conclusions": [
+            "north_early",
+            "north_delivery"
+          ]
+        },
+        {
+          "id": "north_wait",
+          "text": "Стоит дождаться ещё одного рассказа.",
+          "required_conclusions": [
+            "north_early",
+            "north_delivery"
+          ]
+        }
+      ]
+    }
+  ],
+  "reasoning_links": [],
+  "journal_recipes": [
+    {
+      "id": "north_test_recipe",
+      "title": "[TEST] Памятка",
+      "text": "Учебная памятка. Подача напитков остаётся прежней.",
+      "required_terms": [
+        "north_word"
+      ]
+    }
+  ],
+  "dialogues": [],
+  "journal_layout": {
+    "schema_version": 1,
+    "id": "test_north_layout",
+    "test_content": true,
+    "pages": [
+      {
+        "id": "north_index",
+        "section": "notes",
+        "title": "[TEST] Указатель тем",
+        "order": 0,
+        "elements": [
+          {
+            "id": "index_time",
+            "type": "page_link",
+            "reference_id": "north_first",
+            "position": [
+              0.05,
+              0.18
+            ],
+            "size": [
+              0.9,
+              0.1
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "index_cargo",
+            "type": "page_link",
+            "reference_id": "north_second",
+            "position": [
+              0.05,
+              0.34
+            ],
+            "size": [
+              0.9,
+              0.1
+            ],
+            "style": {},
+            "reveal_condition": {}
+          }
+        ],
+        "reveal_condition": {}
+      },
+      {
+        "id": "north_first",
+        "section": "notes",
+        "title": "[TEST] Северный сектор",
+        "order": 1,
+        "elements": [
+          {
+            "id": "quote_gate",
+            "type": "quote",
+            "reference_id": "north_gate",
+            "position": [
+              0.03,
+              0.1
+            ],
+            "size": [
+              0.93,
+              0.11
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "group_time",
+            "type": "group",
+            "reference_id": "north_time",
+            "position": [
+              0.04,
+              0.28
+            ],
+            "size": [
+              0.43,
+              0.21
+            ],
+            "style": {
+              "contour": [
+                [
+                  0.02,
+                  0.06
+                ],
+                [
+                  0.5,
+                  0
+                ],
+                [
+                  0.98,
+                  0.05
+                ],
+                [
+                  1,
+                  0.58
+                ],
+                [
+                  0.94,
+                  0.98
+                ],
+                [
+                  0.4,
+                  1
+                ],
+                [
+                  0,
+                  0.91
+                ],
+                [
+                  0.02,
+                  0.06
+                ]
+              ]
+            },
+            "reveal_condition": {}
+          },
+          {
+            "id": "group_cargo",
+            "type": "group",
+            "reference_id": "north_cargo",
+            "position": [
+              0.53,
+              0.28
+            ],
+            "size": [
+              0.43,
+              0.21
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "conclusion_time",
+            "type": "conclusion",
+            "reference_id": "north_early",
+            "position": [
+              0.04,
+              0.56
+            ],
+            "size": [
+              0.43,
+              0.12
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "conclusion_cargo",
+            "type": "conclusion",
+            "reference_id": "north_delivery",
+            "position": [
+              0.53,
+              0.56
+            ],
+            "size": [
+              0.43,
+              0.12
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "quote_supply",
+            "type": "quote",
+            "reference_id": "north_supply",
+            "position": [
+              0.03,
+              0.74
+            ],
+            "size": [
+              0.93,
+              0.1
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "link_second",
+            "type": "page_link",
+            "reference_id": "north_second",
+            "position": [
+              0.03,
+              0.87
+            ],
+            "size": [
+              0.93,
+              0.05
+            ],
+            "style": {
+              "font_size": 27
+            },
+            "reveal_condition": {}
+          },
+          {
+            "id": "conclusion_north_late",
+            "type": "conclusion",
+            "reference_id": "north_late",
+            "position": [
+              0.04,
+              0.56
+            ],
+            "size": [
+              0.43,
+              0.12
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "conclusion_north_rumour",
+            "type": "conclusion",
+            "reference_id": "north_rumour",
+            "position": [
+              0.53,
+              0.56
+            ],
+            "size": [
+              0.43,
+              0.12
+            ],
+            "style": {},
+            "reveal_condition": {}
+          }
+        ],
+        "reveal_condition": {}
+      },
+      {
+        "id": "north_second",
+        "section": "notes",
+        "title": "[TEST] Другая версия",
+        "order": 2,
+        "elements": [
+          {
+            "id": "quote_route",
+            "type": "quote",
+            "reference_id": "north_route",
+            "position": [
+              0.03,
+              0.1
+            ],
+            "size": [
+              0.93,
+              0.1
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "group_language",
+            "type": "group",
+            "reference_id": "north_language",
+            "position": [
+              0.04,
+              0.28
+            ],
+            "size": [
+              0.43,
+              0.21
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "group_summary",
+            "type": "group",
+            "reference_id": "north_summary",
+            "position": [
+              0.53,
+              0.28
+            ],
+            "size": [
+              0.43,
+              0.21
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "conclusion_question",
+            "type": "conclusion",
+            "reference_id": "north_question",
+            "position": [
+              0.53,
+              0.57
+            ],
+            "size": [
+              0.43,
+              0.13
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "quote_clock",
+            "type": "quote",
+            "reference_id": "north_clock",
+            "position": [
+              0.03,
+              0.74
+            ],
+            "size": [
+              0.93,
+              0.1
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "link_first",
+            "type": "page_link",
+            "reference_id": "north_first",
+            "position": [
+              0.03,
+              0.87
+            ],
+            "size": [
+              0.93,
+              0.05
+            ],
+            "style": {
+              "font_size": 27
+            },
+            "reveal_condition": {}
+          },
+          {
+            "id": "conclusion_north_wait",
+            "type": "conclusion",
+            "reference_id": "north_wait",
+            "position": [
+              0.53,
+              0.57
+            ],
+            "size": [
+              0.43,
+              0.13
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "conclusion_north_passage",
+            "type": "conclusion",
+            "reference_id": "north_passage",
+            "position": [
+              0.04,
+              0.57
+            ],
+            "size": [
+              0.43,
+              0.13
+            ],
+            "style": {},
+            "reveal_condition": {}
+          },
+          {
+            "id": "conclusion_north_service",
+            "type": "conclusion",
+            "reference_id": "north_service",
+            "position": [
+              0.04,
+              0.57
+            ],
+            "size": [
+              0.43,
+              0.13
+            ],
+            "style": {},
+            "reveal_condition": {}
+          }
+        ],
+        "reveal_condition": {}
+      },
+      {
+        "id": "north_dictionary",
+        "section": "words",
+        "title": "[TEST] Словарь",
+        "order": 0,
+        "elements": [
+          {
+            "id": "word_stvor",
+            "type": "term",
+            "reference_id": "north_word",
+            "position": [
+              0.05,
+              0.17
+            ],
+            "size": [
+              0.9,
+              0.35
+            ],
+            "style": {},
+            "reveal_condition": {}
+          }
+        ],
+        "reveal_condition": {}
+      }
+    ],
+    "connections": [
+      {
+        "id": "north_time_arrow",
+        "source_id": "group_time",
+        "target_id": "group_cargo",
+        "path_points": [
+          [
+            0.47,
+            0.38
+          ],
+          [
+            0.5,
+            0.36
+          ],
+          [
+            0.53,
+            0.38
+          ]
+        ],
+        "style": {
+          "arrow": true,
+          "curve": true
+        },
+        "activation_condition": {
+          "completed": [
+            "north_group_link"
+          ]
+        }
+      },
+      {
+        "id": "north_question_arrow",
+        "source_id": "group_language",
+        "target_id": "group_summary",
+        "path_points": [
+          [
+            0.47,
+            0.38
+          ],
+          [
+            0.5,
+            0.4
+          ],
+          [
+            0.53,
+            0.38
+          ]
+        ],
+        "style": {
+          "arrow": true,
+          "curve": true
+        },
+        "activation_condition": {
+          "conclusions": [
+            "north_passage"
+          ]
+        }
+      }
+    ],
+    "interactions": [
+      {
+        "id": "north_discrepancy",
+        "type": "compare",
+        "source_ids": [
+          "quote_supply",
+          "quote_route"
+        ],
+        "options": [],
+        "activation_condition": {},
+        "strike_ids": [
+          "conclusion_cargo"
+        ]
+      },
+      {
+        "id": "north_group_link",
+        "type": "connect",
+        "source_ids": [
+          "group_time",
+          "group_cargo"
+        ],
+        "options": [],
+        "activation_condition": {
+          "conclusions": [
+            "north_early",
+            "north_delivery"
+          ]
+        },
+        "strike_ids": []
+      },
+      {
+        "id": "north_meaning",
+        "type": "revise",
+        "source_ids": [
+          "word_stvor"
+        ],
+        "options": [
+          {
+            "id": "meaning_gate",
+            "text": "Предположительно: проход, ворота."
+          },
+          {
+            "id": "meaning_office",
+            "text": "Предположительно: название службы."
+          }
+        ],
+        "activation_condition": {},
+        "strike_ids": []
+      }
+    ]
+  },
+  "narrative_events": [],
+  "testimony_links": []
+}
