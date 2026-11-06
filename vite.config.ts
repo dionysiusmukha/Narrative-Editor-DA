@@ -2,6 +2,9 @@ import { defineConfig, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
+import { compileGodotFiles } from './src/utils/godotExporter';
+import { assertProjectShape } from './src/utils/projectImport';
+import { validateProject } from './src/utils/validator';
 
 function godotSyncPlugin(): Plugin {
   return {
@@ -42,6 +45,7 @@ function godotSyncPlugin(): Plugin {
           if (req.method === 'POST' && req.url === '/api/save-project') {
             const raw = await readBody();
             const parsed = JSON.parse(raw);
+            assertProjectShape(parsed);
             fs.writeFileSync(projectFile, JSON.stringify(parsed, null, 2), 'utf-8');
             return sendJson(200, { ok: true, path: projectFile });
           }
@@ -51,12 +55,13 @@ function godotSyncPlugin(): Plugin {
             const payload = JSON.parse(raw) as {
               godotPath: string;
               project: unknown;
-              files: Array<{ relativePath: string; content: string }>;
             };
-
-            // Also persist project.narrative.json in editor workspace
-            if (payload.project) {
-              fs.writeFileSync(projectFile, JSON.stringify(payload.project, null, 2), 'utf-8');
+            assertProjectShape(payload.project);
+            const issue = validateProject(payload.project).find((item) => item.level === 'error');
+            if (issue) return sendJson(400, { ok: false, error: `${issue.path}: ${issue.message}` });
+            const files = compileGodotFiles(payload.project);
+            if (files.some((file) => !/^content\/[a-z]+\/[a-z][a-z0-9_]*\.json$/.test(file.relativePath))) {
+              return sendJson(400, { ok: false, error: 'Некорректный ID в пути экспорта' });
             }
 
             const baseDir = payload.godotPath || 'c:\\Dev\\Dark-Alone';
@@ -68,7 +73,7 @@ function godotSyncPlugin(): Plugin {
             }
 
             const writtenFiles: string[] = [];
-            for (const f of payload.files) {
+            for (const f of files) {
               const targetPath = path.resolve(baseDir, f.relativePath);
               const dir = path.dirname(targetPath);
               if (!fs.existsSync(dir)) {
@@ -77,6 +82,7 @@ function godotSyncPlugin(): Plugin {
               fs.writeFileSync(targetPath, f.content, 'utf-8');
               writtenFiles.push(targetPath);
             }
+            fs.writeFileSync(projectFile, JSON.stringify(payload.project, null, 2), 'utf-8');
 
             return sendJson(200, {
               ok: true,

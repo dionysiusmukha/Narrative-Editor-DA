@@ -22,6 +22,9 @@ export const ExportAndSyncPanel: React.FC = () => {
     saveProjectToServer,
     importProjectJson,
     resetToArkadiyDefault,
+    setActiveTab,
+    setSelectedDialogueId,
+    setSelectedNodeId,
   } = useNarrativeStore();
 
   const compiledFiles = useMemo(() => compileGodotFiles(project), [project]);
@@ -29,6 +32,7 @@ export const ExportAndSyncPanel: React.FC = () => {
 
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
   const [lastSyncedPaths, setLastSyncedPaths] = useState<string[]>([]);
+  const exampleUrl = new URL('../../examples/arkadiy-memory.narrative.json', import.meta.url).href;
 
   const activeFile = compiledFiles[selectedFileIndex] || compiledFiles[0];
 
@@ -56,14 +60,14 @@ export const ExportAndSyncPanel: React.FC = () => {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result));
-        if (parsed && parsed.characters && parsed.dialogues) {
-          importProjectJson(parsed);
-        }
-      } catch {
-        alert('Ошибка чтения JSON файла проекта');
+        importProjectJson(parsed);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Ошибка чтения JSON файла проекта');
       }
     };
+    reader.onerror = () => alert('Не удалось прочитать файл проекта');
     reader.readAsText(file);
+    e.target.value = '';
   };
 
   return (
@@ -81,6 +85,16 @@ export const ExportAndSyncPanel: React.FC = () => {
         </div>
 
         <div className="inline-controls">
+          <button type="button" className="btn btn-secondary" onClick={async () => {
+            if (!confirm('Открыть пример памяти вместо текущего проекта? Сначала скачайте копию проекта, если нужно сохранить черновик.')) return;
+            try {
+              const response = await fetch(exampleUrl);
+              if (!response.ok) throw new Error('Пример недоступен');
+              importProjectJson(await response.json());
+            } catch (error) {
+              alert(error instanceof Error ? error.message : 'Не удалось открыть пример');
+            }
+          }}>Пример памяти Аркадия</button>
           <label className="btn btn-secondary">
             <Upload size={14} /> Импорт проекта
             <input
@@ -124,7 +138,7 @@ export const ExportAndSyncPanel: React.FC = () => {
       <div className="card sync-banner-card">
         <div className="sync-row">
           <div className="field-row" style={{ flex: 1 }}>
-            <label>Путь к локальному репозиторию Dark Alone (ветка narrative-editor)</label>
+            <label>Путь к проекту Dark Alone или папке для выгрузки</label>
             <input
               type="text"
               value={project.godot_project_path}
@@ -161,6 +175,11 @@ export const ExportAndSyncPanel: React.FC = () => {
                 {issues.map((iss, idx) => (
                   <li key={idx}>
                     <code>{iss.path}</code>: {iss.message}
+                    {iss.dialogueId && <button className="btn btn-secondary btn-xs" onClick={() => {
+                      setSelectedDialogueId(iss.dialogueId!);
+                      if (iss.nodeId) setSelectedNodeId(iss.nodeId);
+                      setActiveTab('dialogues');
+                    }}>Открыть диалог</button>}
                   </li>
                 ))}
               </ul>
@@ -170,8 +189,7 @@ export const ExportAndSyncPanel: React.FC = () => {
           <div className="alert-box alert-success">
             <CheckCircle2 size={16} />
             <span>
-              Все проверки <code>DialogueContentValidator</code> пройдены успешно!
-              Графы диалогов, словарь и переменные готовы к загрузке в Godot.
+              Проверки редактора пройдены. {project.narrative_events?.length ? 'Укажите пакет событий в Main.narrative_events_path нужной сцены Godot.' : 'Графы, словарь и переменные готовы к экспорту.'}
             </span>
           </div>
         )}
@@ -230,6 +248,7 @@ export const ExportAndSyncPanel: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
+                  disabled={issues.length > 0}
                   onClick={() =>
                     navigator.clipboard.writeText(activeFile.content)
                   }
@@ -239,6 +258,7 @@ export const ExportAndSyncPanel: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"
+                  disabled={issues.length > 0}
                   onClick={() =>
                     handleDownloadFile(
                       activeFile.relativePath,

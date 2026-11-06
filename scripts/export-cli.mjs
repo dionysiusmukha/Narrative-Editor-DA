@@ -1,16 +1,25 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { compileMemoryFile, dialogueBundlePath } from '../src/utils/npcMemory.ts';
+import { assertProjectShape } from '../src/utils/projectImport.ts';
+import { validateProject } from '../src/utils/validator.ts';
 
 /**
  * CLI-скрипт экспорта project.narrative.json в папку Godot проекта (c:\Dev\Dark-Alone\content).
  */
-const projectFile = path.resolve(process.cwd(), 'project.narrative.json');
+const projectFile = path.resolve(process.cwd(), process.argv[3] || 'project.narrative.json');
 if (!fs.existsSync(projectFile)) {
   console.error('Файл project.narrative.json не найден.');
   process.exit(1);
 }
 
 const project = JSON.parse(fs.readFileSync(projectFile, 'utf-8'));
+assertProjectShape(project);
+const issues = validateProject(project).filter((issue) => issue.level === 'error');
+if (issues.length) {
+  for (const issue of issues) console.error(`${issue.path}: ${issue.message}`);
+  process.exit(1);
+}
 const godotDir = process.argv[2] || project.godot_project_path || 'c:\\Dev\\Dark-Alone';
 
 // 1. Glossary
@@ -112,12 +121,12 @@ for (const char of project.characters) {
 // 4. Dialogues
 const byChar = new Map();
 for (const dlg of project.dialogues) {
-  const key = dlg.character_id || 'general';
+  const key = dialogueBundlePath(project, dlg);
   if (!byChar.has(key)) byChar.set(key, []);
   byChar.get(key).push(dlg);
 }
 
-for (const [charId, dialogues] of byChar.entries()) {
+for (const [relativePath, dialogues] of byChar.entries()) {
   const bundle = {
     schema_version: 1,
     test_content: dialogues.every((d) => d.test_content),
@@ -178,11 +187,18 @@ for (const [charId, dialogues] of byChar.entries()) {
   };
 
   filesToWrite.push({
-    relativePath: `content/dialogues/${charId}.json`,
+    relativePath,
     content: JSON.stringify(bundle, null, 2) + '\n',
   });
 }
 
+const memory = compileMemoryFile(project);
+if (memory) filesToWrite.push(memory);
+
+if (filesToWrite.some((file) => !/^content\/[a-z]+\/[a-z][a-z0-9_]*\.json$/.test(file.relativePath))) {
+  console.error('Некорректный ID в пути экспорта');
+  process.exit(1);
+}
 for (const f of filesToWrite) {
   const fullPath = path.resolve(godotDir, f.relativePath);
   fs.mkdirSync(path.dirname(fullPath), { recursive: true });

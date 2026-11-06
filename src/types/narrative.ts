@@ -164,6 +164,36 @@ export interface NarrativeProject {
   reasoning_links: ReasoningLink[];
   journal_recipes: JournalRecipe[];
   dialogues: DialogueDocument[];
+  narrative_events?: NarrativeEvent[];
+  testimony_links?: TestimonyLink[];
+}
+
+export const RECORD_KINDS = ['memory', 'knowledge', 'belief', 'testimony'] as const;
+export type RecordKind = typeof RECORD_KINDS[number];
+
+interface RecordBase {
+  id: string;
+  character_id: string;
+  text: string;
+}
+
+export type NarrativeRecord = RecordBase & (
+  | { kind: 'memory'; interpretation: string; emotion: string; significance: number; confidence: number }
+  | { kind: 'knowledge' | 'belief' }
+  | { kind: 'testimony'; event_id: string; source: string; related: string[] }
+);
+
+export interface NarrativeEvent {
+  id: string;
+  fact: string;
+  records: NarrativeRecord[];
+  service?: { character_id: string; drink_id: string };
+}
+
+export interface TestimonyLink {
+  from: string;
+  to: string;
+  kind: 'related' | 'contradiction';
 }
 
 export interface ValidationIssue {

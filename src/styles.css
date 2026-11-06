@@ -1253,3 +1253,22 @@ textarea:focus {
   flex-direction: column;
   gap: 8px;
 }
+
+.memory-details { margin-bottom: 16px; }
+.memory-details > summary { cursor: pointer; font-weight: 600; }
+.memory-editor { display: grid; gap: 12px; align-content: start; }
+.memory-details .memory-editor { margin-top: 14px; }
+.memory-tabs { flex-wrap: wrap; }
+.memory-tabs input { min-width: 210px; }
+.memory-tabs select { max-width: min(100%, 420px); }
+.memory-form { display: grid; gap: 10px; }
+.memory-form label, .memory-inspector-label { display: grid; gap: 5px; min-width: 0; }
+.memory-form label:has(input[type='checkbox']) { display: flex; align-items: center; }
+.memory-form textarea { min-height: 65px; }
+.memory-card { display: grid; gap: 8px; overflow-wrap: anywhere; }
+.memory-card .inline-controls { flex-wrap: wrap; }
+.memory-card p, .memory-card ul { margin: 0; }
+.memory-card ul { padding-left: 20px; }
+.memory-inspector-group { border-top: 1px solid var(--border); padding-top: 6px; }
+.memory-inspector-group p { margin: 4px 0; }
+.memory-status { padding: 8px 10px; background: var(--bg-input); border-radius: 6px; }

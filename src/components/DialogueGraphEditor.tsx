@@ -14,6 +14,7 @@ import '@xyflow/react/dist/style.css';
 import { useNarrativeStore } from '../store/useNarrativeStore';
 import {
   ConditionOperator,
+  NarrativeProject,
   DialogueEffectType,
   DRINK_INGREDIENTS,
   NPC_EMOTIONS,
@@ -21,6 +22,7 @@ import {
 } from '../types/narrative';
 import { DialogueSpeechNode } from './nodes/DialogueSpeechNode';
 import { isValidSnakeCaseId, validateProject } from '../utils/validator';
+import { computedConditions } from '../utils/npcMemory';
 import {
   Plus,
   Trash2,
@@ -37,6 +39,23 @@ import {
 const nodeTypes = {
   speech: DialogueSpeechNode,
 };
+
+function RememberEventSelect({ project, value, onChange }: { project: NarrativeProject; value: string; onChange: (id: string) => void }) {
+  const [characterId, setCharacterId] = useState('');
+  const events = project.narrative_events || [];
+  return <>
+    <select aria-label="Персонаж для фильтра событий" value={characterId} onChange={(event) => setCharacterId(event.target.value)}>
+      <option value="">Все персонажи</option>
+      {project.characters.map((character) => <option key={character.id} value={character.id}>{character.name}</option>)}
+    </select>
+    <select aria-label="Событие памяти" value={value} onChange={(event) => onChange(event.target.value)}>
+      <option value="">Выберите событие</option>
+      {value && !events.some((event) => event.id === value) && <option value={value}>Неизвестное: {value}</option>}
+      {events.filter((event) => !characterId || event.id === value || event.records.some((record) => record.character_id === characterId))
+        .map((event) => <option key={event.id} value={event.id}>{event.id} · {event.fact}</option>)}
+    </select>
+  </>;
+}
 
 export const DialogueGraphEditor: React.FC = () => {
   const {
@@ -77,6 +96,10 @@ export const DialogueGraphEditor: React.FC = () => {
 
   // Run live validator
   const allIssues = useMemo(() => validateProject(project), [project]);
+  const conditionOptions = [
+    ...project.variables.map((variable) => ({ ...variable, label: variable.title })),
+    ...(project.narrative_events?.length ? computedConditions(project.narrative_events, currentDialogue?.character_id || '') : []),
+  ];
   const dialogueIssues = useMemo(
     () =>
       allIssues.filter(
@@ -810,10 +833,11 @@ export const DialogueGraphEditor: React.FC = () => {
                                     currentDialogue.id,
                                     selectedNode.id,
                                     ef.effect_id,
-                                    { event: e.target.value }
+                                    { event: e.target.value, arg: e.target.value === 'remember' ? '' : e.target.value === 'command' ? 'wait' : 'interested' }
                                   )
                                 }
                               >
+                                <option value="remember">Запомнить событие (remember)</option>
                                 <option value="react">Эмоция (VisitorModel.react)</option>
                                 <option value="command">
                                   Команда (VisitorBehavior.command)
@@ -822,7 +846,11 @@ export const DialogueGraphEditor: React.FC = () => {
                             </div>
                             <div className="field-row">
                               <label>Аргумент</label>
-                              {ef.event === 'command' ? (
+                              {ef.event === 'remember' ? (
+                                <RememberEventSelect project={project} value={ef.arg || ''} onChange={(arg) =>
+                                  updateEffect(currentDialogue.id, selectedNode.id, ef.effect_id, { arg })
+                                } />
+                              ) : ef.event === 'command' ? (
                                 <select
                                   value={ef.arg || 'wait'}
                                   onChange={(e) =>
@@ -1060,18 +1088,18 @@ export const DialogueGraphEditor: React.FC = () => {
                         {/* Variable Conditions */}
                         <div className="field-row">
                           <div className="subsection-header">
-                            <label>Условия по переменным / доверию:</label>
+                            <label>Условия по переменным, памяти и смене</label>
                             <button
                               type="button"
                               className="btn btn-secondary btn-xs"
                               onClick={() => {
-                                const firstVar = project.variables[0];
+                                const firstVar = conditionOptions[0];
                                 if (!firstVar) return;
                                 const nextConds = [
                                   ...(ch.conditions || []),
                                   {
                                     variable_id: firstVar.id,
-                                    op: '>=' as ConditionOperator,
+                                    op: '==' as ConditionOperator,
                                     value: firstVar.default_value,
                                   },
                                 ];
@@ -1087,15 +1115,23 @@ export const DialogueGraphEditor: React.FC = () => {
                             </button>
                           </div>
 
-                          {(ch.conditions || []).map((cond, cIdx) => (
+                          {(ch.conditions || []).map((cond, cIdx) => {
+                            const option = conditionOptions.find((item) => item.id === cond.variable_id);
+                            const changeValue = (raw: string) => {
+                              const value = option?.type === 'number' ? Number(raw) : option?.type === 'boolean' ? raw === 'true' : raw;
+                              const conditions = ch.conditions.map((item, index) => index === cIdx ? { ...item, value } : item);
+                              updateChoice(currentDialogue.id, selectedNode.id, ch.id, { conditions });
+                            };
+                            return (
                             <div key={cIdx} className="condition-row">
                               <select
+                                aria-label="Условие ответа"
                                 value={cond.variable_id}
                                 onChange={(e) => {
                                   const next = (ch.conditions || []).map(
                                     (item, i) =>
                                       i === cIdx
-                                        ? { ...item, variable_id: e.target.value }
+                                        ? { variable_id: e.target.value, op: '==' as const, value: conditionOptions.find((option) => option.id === e.target.value)?.default_value ?? true }
                                         : item
                                   );
                                   updateChoice(
@@ -1106,9 +1142,10 @@ export const DialogueGraphEditor: React.FC = () => {
                                   );
                                 }}
                               >
-                                {project.variables.map((v) => (
+                                {!conditionOptions.some((option) => option.id === cond.variable_id) && <option value={cond.variable_id}>Недоступно: {cond.variable_id}</option>}
+                                {conditionOptions.map((v) => (
                                   <option key={v.id} value={v.id}>
-                                    {v.id}
+                                    {v.id} · {v.label}
                                   </option>
                                 ))}
                               </select>
@@ -1133,41 +1170,17 @@ export const DialogueGraphEditor: React.FC = () => {
                                   );
                                 }}
                               >
-                                <option value=">=">&gt;=</option>
-                                <option value=">">&gt;</option>
                                 <option value="==">==</option>
                                 <option value="!=">!=</option>
-                                <option value="<=">&lt;=</option>
-                                <option value="<">&lt;</option>
+                                {option?.type !== 'boolean' &&
+                                  ['>=', '>', '<=', '<'].map((op) => <option key={op} value={op}>{op}</option>)}
                               </select>
-                              <input
-                                type="text"
-                                value={String(cond.value)}
-                                onChange={(e) => {
-                                  const raw = e.target.value;
-                                  const targetVar = project.variables.find(
-                                    (v) => v.id === cond.variable_id
-                                  );
-                                  let parsedVal: boolean | number | string = raw;
-                                  if (targetVar?.type === 'number') {
-                                    parsedVal = Number(raw) || 0;
-                                  } else if (targetVar?.type === 'boolean') {
-                                    parsedVal = raw === 'true';
-                                  }
-                                  const next = (ch.conditions || []).map(
-                                    (item, i) =>
-                                      i === cIdx
-                                        ? { ...item, value: parsedVal }
-                                        : item
-                                  );
-                                  updateChoice(
-                                    currentDialogue.id,
-                                    selectedNode.id,
-                                    ch.id,
-                                    { conditions: next }
-                                  );
-                                }}
-                              />
+                              {option?.type === 'boolean' ? (
+                                <select aria-label="Значение условия" value={String(cond.value)} onChange={(event) => changeValue(event.target.value)}>
+                                  <option value="true">Да</option><option value="false">Нет</option>
+                                </select>
+                              ) : <input aria-label="Значение условия" type={option?.type === 'number' ? 'number' : 'text'}
+                                value={String(cond.value)} onChange={(event) => changeValue(event.target.value)} />}
                               <button
                                 type="button"
                                 className="btn-icon"
@@ -1186,7 +1199,8 @@ export const DialogueGraphEditor: React.FC = () => {
                                 <Trash2 size={13} />
                               </button>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     ))}

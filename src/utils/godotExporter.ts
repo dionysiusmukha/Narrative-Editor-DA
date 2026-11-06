@@ -1,4 +1,5 @@
-import { DialogueDocument, NarrativeProject } from '../types/narrative';
+import type { DialogueDocument, NarrativeProject } from '../types/narrative.ts';
+import { compileMemoryFile, dialogueBundlePath } from './npcMemory.ts';
 
 export interface ExportedGodotFile {
   relativePath: string;
@@ -130,14 +131,14 @@ export function compileGodotFiles(project: NarrativeProject): ExportedGodotFile[
   // 4. Диалоги по персонажам (content/dialogues/<character_id>.json)
   const dialoguesByChar = new Map<string, DialogueDocument[]>();
   for (const dlg of project.dialogues) {
-    const key = dlg.character_id || 'general';
+    const key = dialogueBundlePath(project, dlg);
     if (!dialoguesByChar.has(key)) {
       dialoguesByChar.set(key, []);
     }
     dialoguesByChar.get(key)!.push(dlg);
   }
 
-  for (const [charId, dialogues] of dialoguesByChar.entries()) {
+  for (const [relativePath, dialogues] of dialoguesByChar.entries()) {
     const dialogueBundle = {
       schema_version: 1,
       test_content: dialogues.every((d) => d.test_content),
@@ -205,11 +206,13 @@ export function compileGodotFiles(project: NarrativeProject): ExportedGodotFile[
     };
 
     files.push({
-      relativePath: `content/dialogues/${charId}.json`,
-      description: `Пакет диалогов (${charId})`,
+      relativePath,
+      description: `Пакет диалогов (${dialogues[0].character_id || 'general'})`,
       content: JSON.stringify(dialogueBundle, null, 2) + '\n',
     });
   }
 
+  const memory = compileMemoryFile(project);
+  if (memory) files.push(memory);
   return files;
 }

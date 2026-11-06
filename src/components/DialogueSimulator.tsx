@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNarrativeStore } from '../store/useNarrativeStore';
 import {
-  ChoiceCondition,
   DialogueChoice,
   NPC_EMOTIONS,
 } from '../types/narrative';
+import { RECORD_KINDS } from '../types/narrative';
+import { evaluateCondition, KIND_LABELS, rememberEvent, visibleRecords, type EventHistory } from '../utils/npcMemory';
 import {
   Play,
   RotateCcw,
@@ -15,30 +16,6 @@ import {
   Lock,
   MessageSquare,
 } from 'lucide-react';
-
-function evaluateCondition(
-  cond: ChoiceCondition,
-  vars: Record<string, boolean | number | string>
-): boolean {
-  const actual = vars[cond.variable_id];
-  const expected = cond.value;
-  switch (cond.op) {
-    case '==':
-      return actual === expected;
-    case '!=':
-      return actual !== expected;
-    case '>':
-      return Number(actual) > Number(expected);
-    case '>=':
-      return Number(actual) >= Number(expected);
-    case '<':
-      return Number(actual) < Number(expected);
-    case '<=':
-      return Number(actual) <= Number(expected);
-    default:
-      return false;
-  }
-}
 
 export const DialogueSimulator: React.FC = () => {
   const { project, selectedDialogueId, setSelectedDialogueId } =
@@ -66,12 +43,23 @@ export const DialogueSimulator: React.FC = () => {
   });
   const [appliedEffects, setAppliedEffects] = useState<string[]>([]);
   const [eventLog, setEventLog] = useState<string[]>([]);
+  const [shift, setShift] = useState(1);
+  const [history, setHistory] = useState<EventHistory>({});
+  const [inspectedCharacter, setInspectedCharacter] = useState('');
+  const [reaction, setReaction] = useState('neutral');
+  const [serviceTrigger, setServiceTrigger] = useState('');
+  const events = project.narrative_events || [];
+  const characterId = inspectedCharacter || currentDialogue?.character_id || project.characters[0]?.id || '';
+  const acquired = visibleRecords(events, history, characterId);
+  const initialVariables = () => Object.fromEntries(project.variables.map((variable) => [variable.id, variable.default_value]));
 
   const applyNodeEntry = (
     nodeId: string,
     currentApplied: string[],
     currentTerms: string[],
-    currentVars: Record<string, boolean | number | string>
+    currentVars: Record<string, boolean | number | string>,
+    currentHistory = history,
+    currentShift = shift,
   ) => {
     if (!currentDialogue) return;
     const node = currentDialogue.nodes.find((n) => n.id === nodeId);
@@ -80,6 +68,8 @@ export const DialogueSimulator: React.FC = () => {
     const nextApplied = [...currentApplied];
     const nextTerms = [...currentTerms];
     const nextVars = { ...currentVars };
+    let nextHistory = currentHistory;
+    let nextReaction = node.emotion || 'neutral' as string;
     const logs: string[] = [];
 
     if (node.emotion) {
@@ -116,7 +106,14 @@ export const DialogueSimulator: React.FC = () => {
           `[Переменная] ${ef.variable_id} = ${String(ef.value)}`
         );
       } else if (ef.type === 'npc_event') {
-        logs.push(`[Событие NPC] ${ef.event}(${ef.arg})`);
+        if (ef.event === 'remember') {
+          const updated = rememberEvent(events, nextHistory, ef.arg || '', currentShift);
+          if (updated !== nextHistory) logs.push(`[Смена ${currentShift}] Событие ${ef.arg} записано`);
+          nextHistory = updated;
+        } else {
+          if (ef.event === 'react' && ef.arg) nextReaction = ef.arg;
+          logs.push(`[Событие NPC] ${ef.event}(${ef.arg})`);
+        }
       } else if (ef.type === 'service_event') {
         logs.push(`[Событие Бара] ${ef.event}: ${ef.arg}`);
       }
@@ -126,6 +123,8 @@ export const DialogueSimulator: React.FC = () => {
     setAppliedEffects(nextApplied);
     setKnownTerms(nextTerms);
     setVariables(nextVars);
+    setHistory(nextHistory);
+    setReaction(nextReaction);
     if (logs.length > 0) {
       setEventLog((prev) => [...logs, ...prev]);
     }
@@ -133,17 +132,38 @@ export const DialogueSimulator: React.FC = () => {
 
   const resetSimulation = () => {
     if (!currentDialogue) return;
-    const initVars: Record<string, boolean | number | string> = {};
-    for (const v of project.variables) {
-      initVars[v.id] = v.default_value;
-    }
+    setShift(1);
     setChosenConclusions({});
     setEventLog(['--- Симуляция запущена с начального состояния ---']);
-    applyNodeEntry(currentDialogue.start_node, [], [], initVars);
+    applyNodeEntry(currentDialogue.start_node, [], [], initialVariables(), {}, 1);
+  };
+
+  const startMeeting = () => {
+    if (currentDialogue) applyNodeEntry(currentDialogue.start_node, appliedEffects, knownTerms, variables);
+  };
+
+  const nextShift = () => {
+    if (!currentDialogue) return;
+    setShift(shift + 1);
+    setEventLog((previous) => [`--- Смена ${shift + 1} ---`, ...previous]);
+    applyNodeEntry(currentDialogue.start_node, [], knownTerms, initialVariables(), history, shift + 1);
+  };
+
+  const simulateService = () => {
+    const selected = events.find((event) => event.id === serviceTrigger)?.service;
+    if (!selected) return;
+    let nextHistory = history;
+    for (const event of events) {
+      if (event.service?.character_id === selected.character_id && event.service.drink_id === selected.drink_id) {
+        nextHistory = rememberEvent(events, nextHistory, event.id, shift);
+      }
+    }
+    setHistory(nextHistory);
+    if (nextHistory !== history) setEventLog((previous) => [`[Смена ${shift}] Подача: ${selected.character_id} / ${selected.drink_id}`, ...previous]);
   };
 
   useEffect(() => {
-    resetSimulation();
+    startMeeting();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDialogue?.id]);
 
@@ -163,7 +183,7 @@ export const DialogueSimulator: React.FC = () => {
         (c) => !activeConclusionValues.includes(c)
       );
       const failedConditions = (ch.conditions || []).filter(
-        (cond) => !evaluateCondition(cond, variables)
+        (cond) => !evaluateCondition(cond, variables, events, history, currentDialogue.character_id, shift)
       );
 
       const available =
@@ -179,19 +199,37 @@ export const DialogueSimulator: React.FC = () => {
         failedConditions,
       };
     });
-  }, [currentNode, knownTerms, chosenConclusions, variables]);
+  }, [currentNode, knownTerms, chosenConclusions, variables, events, history, currentDialogue, shift]);
 
   if (!currentDialogue) {
     return <div className="page-container">Нет выбранного диалога.</div>;
   }
 
   const emotionMeta =
-    NPC_EMOTIONS.find((e) => e.id === currentNode?.emotion) || NPC_EMOTIONS[0];
+    NPC_EMOTIONS.find((e) => e.id === reaction) || NPC_EMOTIONS[0];
 
   return (
     <div className="simulator-layout">
       {/* Left Column: Live State & Journal Controls */}
       <aside className="simulator-sidebar">
+        <div className="card memory-card">
+          <div className="card-header-inline"><h3>Смена {shift}</h3><button className="btn btn-primary btn-sm" onClick={nextShift}>Следующая смена</button></div>
+          <label className="memory-inspector-label">Состояние персонажа<select value={characterId} onChange={(e) => setInspectedCharacter(e.target.value)}>
+            {project.characters.map((character) => <option key={character.id} value={character.id}>{character.name}</option>)}
+          </select></label>
+          {characterId === currentDialogue.character_id && <p className="muted-text">Текущая реакция · {emotionMeta.label}</p>}
+          {RECORD_KINDS.map((kind) => <div key={kind} className="memory-inspector-group"><strong>{KIND_LABELS[kind]}</strong>
+            {acquired.filter(({ record }) => record.kind === kind).map(({ record, eventId, shift }) => <p key={record.id}>{record.text}<br />
+              <small className="muted-text">{eventId} · смена {shift}{record.kind === 'memory' ? ` · ${record.interpretation}` : record.kind === 'testimony' ? ` · ${record.source}` : ''}</small></p>)}
+            {!acquired.some(({ record }) => record.kind === kind) && <p className="muted-text">Пока нет записей</p>}
+          </div>)}
+          {events.some((event) => event.service) && <div className="memory-inspector-group">
+            <label className="memory-inspector-label">Проверка подачи<select value={serviceTrigger} onChange={(e) => setServiceTrigger(e.target.value)}>
+              <option value="">Выберите подачу</option>{events.filter((event) => event.service).map((event) => <option key={event.id} value={event.id}>{event.service?.character_id} · {event.service?.drink_id}</option>)}
+            </select></label><button className="btn btn-secondary btn-xs" disabled={!serviceTrigger} onClick={simulateService}>Отметить успешную подачу</button>
+          </div>}
+          <details><summary>Выполненные события ({Object.keys(history).length})</summary><ul>{Object.entries(history).map(([id, shift]) => <li key={id}>{id} · смена {shift}</li>)}</ul></details>
+        </div>
         <div className="card">
           <div className="card-header-inline">
             <h3>
@@ -340,9 +378,9 @@ export const DialogueSimulator: React.FC = () => {
           <button
             type="button"
             className="btn btn-primary btn-sm"
-            onClick={resetSimulation}
+            onClick={startMeeting}
           >
-            <Play size={14} /> Начать заново
+            <Play size={14} /> Начать встречу
           </button>
         </div>
 
@@ -362,7 +400,7 @@ export const DialogueSimulator: React.FC = () => {
                     color: emotionMeta.color,
                   }}
                 >
-                  Реакция: {currentNode.emotion || 'neutral'}
+                  Реакция: {reaction}
                 </span>
               </div>
 
@@ -392,7 +430,7 @@ export const DialogueSimulator: React.FC = () => {
                   <button
                     type="button"
                     className="btn btn-primary"
-                    onClick={resetSimulation}
+                    onClick={startMeeting}
                   >
                     Пройти диалог ещё раз
                   </button>
@@ -413,14 +451,15 @@ export const DialogueSimulator: React.FC = () => {
                       className={`sim-choice-btn ${
                         available ? 'available' : 'locked'
                       }`}
-                      onClick={() =>
+                      onClick={() => {
+                        setEventLog((previous) => [`[Смена ${shift}] Ответ: ${choice.text}`, ...previous]);
                         applyNodeEntry(
                           choice.target,
                           appliedEffects,
                           knownTerms,
                           variables
-                        )
-                      }
+                        );
+                      }}
                     >
                       <div className="sim-choice-main">
                         <span className="sim-choice-caption">{choice.text}</span>

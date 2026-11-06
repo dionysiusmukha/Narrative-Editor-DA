@@ -1,17 +1,25 @@
-import {
+import type {
   DialogueDocument,
   NarrativeProject,
   ValidationIssue,
-} from '../types/narrative';
+} from '../types/narrative.ts';
+import { computedConditions, validateMemoryProject } from './npcMemory.ts';
 
 const SNAKE_CASE_REGEX = /^[a-z][a-z0-9_]*$/;
 
 export function isValidSnakeCaseId(id: string): boolean {
-  return SNAKE_CASE_REGEX.test(id);
+  return typeof id === 'string' && SNAKE_CASE_REGEX.test(id);
 }
 
 export function validateProject(project: NarrativeProject): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  const characterIds = new Set<string>();
+  for (const character of project.characters) {
+    if (!isValidSnakeCaseId(character.id) || characterIds.has(character.id)) {
+      issues.push({ level: 'error', path: `characters.${character.id}`, message: 'Некорректный или повторный ID персонажа' });
+    }
+    characterIds.add(character.id);
+  }
 
   const termIds = new Set<string>();
   for (const term of project.terms) {
@@ -81,18 +89,28 @@ export function validateProject(project: NarrativeProject): ValidationIssue[] {
     variableIds.add(v.id);
   }
 
+  const dialogueIds = new Set<string>();
   for (const dialogue of project.dialogues) {
-    issues.push(...validateDialogue(dialogue, termIds, conclusionIds, variableIds));
+    if (dialogueIds.has(dialogue.id) || (dialogue.character_id && !characterIds.has(dialogue.character_id))) {
+      issues.push({ level: 'error', path: `dialogue.${dialogue.id}`, message: 'Повторный ID диалога или отсутствующий персонаж', dialogueId: dialogue.id });
+    }
+    dialogueIds.add(dialogue.id);
+    const allowed = new Set(variableIds);
+    if (project.narrative_events?.length) {
+      for (const condition of computedConditions(project.narrative_events, dialogue.character_id)) allowed.add(condition.id);
+    }
+    issues.push(...validateDialogue(dialogue, termIds, conclusionIds, variableIds, allowed));
   }
 
-  return issues;
+  return [...issues, ...validateMemoryProject(project)];
 }
 
 export function validateDialogue(
   dialogue: DialogueDocument,
   termIds: Set<string>,
   conclusionIds: Set<string>,
-  variableIds: Set<string>
+  variableIds: Set<string>,
+  conditionIds = variableIds
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
@@ -244,7 +262,7 @@ export function validateDialogue(
       }
 
       for (const cond of choice.conditions || []) {
-        if (!variableIds.has(cond.variable_id)) {
+        if (!conditionIds.has(cond.variable_id)) {
           issues.push({
             level: 'error',
             dialogueId: dialogue.id,

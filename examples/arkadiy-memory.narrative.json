@@ -1,0 +1,1374 @@
+{
+  "schema_version": 1,
+  "project_name": "[TEST] Аркадий и память между сменами",
+  "godot_project_path": "c:\\Dev\\Dark-Alone",
+  "characters": [
+    {
+      "id": "arkadiy",
+      "name": "Аркадий",
+      "role": "Старший диспетчер Северного створа",
+      "biography": "Двадцать два года проработал на узловой сортировке Северного створа. Знает расписание каждого ночного эшелона наизусть. Месяц назад его перевели в архивную смену после исчезновения вагона со спецгрузом.",
+      "personality": "Сдержанный, недоверчивый, говорит сухо и по делу. Не любит суеты, всегда садится у правого края стойки, чтобы видеть вход.",
+      "motivation": "Понять, проверяет ли его бармен по заданию инспекции, и решить — можно ли оставить в баре ключ от закрытого ящика с путевыми листами.",
+      "secrets": "В ночь аварии на Тупиковой ветке Аркадий лично перевёл стрелку по устному приказу сверху, а оригинал журнала дежурств спрятал под обшивкой в подсобке.",
+      "default_emotion": "tense",
+      "available_emotions": [
+        "neutral",
+        "interested",
+        "thoughtful",
+        "tense",
+        "disagree"
+      ],
+      "preferences": [
+        "test_stvor",
+        "test_shot"
+      ],
+      "avatar_color": "#38bdf8",
+      "relationships": [
+        {
+          "target_id": "bartender",
+          "trust": 0,
+          "conflict": 2,
+          "hidden": false,
+          "note": "Изучает нового бармена: проверяет, помнит ли тот старые привычки железнодорожников."
+        },
+        {
+          "target_id": "inspector_voronov",
+          "trust": -5,
+          "conflict": 8,
+          "hidden": true,
+          "note": "Боится ревизии Воронова после инцидента на Тупиковой ветке."
+        }
+      ]
+    },
+    {
+      "id": "bartender",
+      "name": "Бармен",
+      "role": "Хозяин ночной смены",
+      "biography": "Ведёт ночные смены в баре у сортировочной станции. Слушает гостей, ведёт личный дневник наблюдений.",
+      "personality": "Немногословный, внимательный к деталям.",
+      "motivation": "Собрать картину происходящего в районе из обрывков чужих разговоров.",
+      "secrets": "Хранит записи о каждом госте в личном бумажном дневнике.",
+      "default_emotion": "neutral",
+      "available_emotions": [
+        "neutral",
+        "thoughtful"
+      ],
+      "preferences": [
+        "test_water"
+      ],
+      "avatar_color": "#94a3b8",
+      "relationships": []
+    },
+    {
+      "id": "inspector_voronov",
+      "name": "Инспектор Воронов",
+      "role": "Следователь линейного контроля",
+      "biography": "Курирует расследование пропавших составов на Северном створе.",
+      "personality": "Холодный, методичный, давит молчанием.",
+      "motivation": "Найти пропавший журнал ночной диспетчерской.",
+      "secrets": "Его подпись стоит на закрытом допуске того самого состава.",
+      "default_emotion": "tense",
+      "available_emotions": [
+        "neutral",
+        "tense",
+        "disagree"
+      ],
+      "preferences": [
+        "test_heavy",
+        "test_glass"
+      ],
+      "avatar_color": "#f87171",
+      "relationships": []
+    },
+    {
+      "id": "night_guard",
+      "name": "Ночной сторож",
+      "role": "[TEST] Свидетель",
+      "biography": "Демонстрационный участник сценария.",
+      "personality": "",
+      "motivation": "",
+      "secrets": "",
+      "default_emotion": "tense",
+      "available_emotions": [
+        "neutral",
+        "interested",
+        "thoughtful",
+        "tense",
+        "disagree"
+      ],
+      "preferences": [],
+      "avatar_color": "#38bdf8",
+      "relationships": []
+    }
+  ],
+  "variables": [
+    {
+      "id": "arkadiy_trust",
+      "title": "Доверие Аркадия",
+      "type": "number",
+      "default_value": 0,
+      "min": -5,
+      "max": 10,
+      "category": "relationship",
+      "character_id": "arkadiy",
+      "description": "Насколько Аркадий доверяет бармену в разговоре за стойкой."
+    },
+    {
+      "id": "arkadiy_mood",
+      "title": "Состояние Аркадия",
+      "type": "string",
+      "default_value": "guarded",
+      "enum_values": [
+        "guarded",
+        "open",
+        "suspicious"
+      ],
+      "category": "character_state",
+      "character_id": "arkadiy",
+      "description": "Текущий эмоциональный настрой Аркадия."
+    },
+    {
+      "id": "arkadiy_ordered_stvor",
+      "title": "Аркадий попросил Северный створ",
+      "type": "boolean",
+      "default_value": false,
+      "category": "event",
+      "character_id": "arkadiy",
+      "description": "Флаг: Аркадий намекнул на рюмку Северного створа."
+    },
+    {
+      "id": "arkadiy_shared_secret",
+      "title": "Аркадий упомянул опечатанный архив",
+      "type": "boolean",
+      "default_value": false,
+      "category": "player_decision",
+      "character_id": "arkadiy",
+      "description": "Флаг: игрок вывел Аркадия на откровенный разговор об архиве."
+    }
+  ],
+  "terms": [
+    {
+      "id": "test_signal",
+      "title": "[TEST] Сигнал",
+      "description": "Техническая запись для проверки первой выдачи термина.",
+      "is_system": true
+    },
+    {
+      "id": "test_marker",
+      "title": "[TEST] Метка",
+      "description": "Вторая техническая запись для проверки условий выбора.",
+      "is_system": true
+    },
+    {
+      "id": "northern_stvor",
+      "title": "Северный створ",
+      "description": "Узловая сортировочная ветка и одновременно название дешёвой крепкой настойки, которую пьют диспетчеры после ночной смены."
+    },
+    {
+      "id": "night_dispatch",
+      "title": "Ночная диспетчерская",
+      "description": "Смена Аркадия, которую внезапно расформировали месяц назад после прохода внепланового состава."
+    },
+    {
+      "id": "blind_siding",
+      "title": "Тупиковая ветка",
+      "description": "Старый отвод за депо. По словам Аркадия, стрелку туда перевели вручную без записи в основной ведомости."
+    },
+    {
+      "id": "sealed_archive",
+      "title": "Опечатанный архив",
+      "description": "Комната учёта, куда перевели Аркадия. Ключ от старого шкафа путевых листов всё ещё остаётся у него."
+    }
+  ],
+  "reasoning_groups": [
+    {
+      "id": "test_terms_connection",
+      "title": "[TEST] Слова одного разговора",
+      "terms": [
+        "test_signal",
+        "test_marker"
+      ],
+      "minimum_terms": 2,
+      "sheet": 0,
+      "position": [
+        0.24,
+        0.33
+      ],
+      "options": [
+        {
+          "id": "test_same_subject",
+          "text": "[TEST] Оба слова об одном явлении."
+        },
+        {
+          "id": "test_different_subjects",
+          "text": "[TEST] Это независимые явления."
+        }
+      ]
+    },
+    {
+      "id": "arkadiy_dispatch_case",
+      "title": "Перевод Аркадия со створа",
+      "terms": [
+        "northern_stvor",
+        "night_dispatch",
+        "blind_siding"
+      ],
+      "minimum_terms": 2,
+      "sheet": 1,
+      "position": [
+        0.35,
+        0.45
+      ],
+      "options": [
+        {
+          "id": "arkadiy_hid_manifest",
+          "text": "Аркадий сам спрятал ведомость ночного состава."
+        },
+        {
+          "id": "arkadiy_fears_inspection",
+          "text": "Аркадия убрали со смены как лишнего свидетеля."
+        }
+      ]
+    }
+  ],
+  "reasoning_links": [],
+  "journal_recipes": [
+    {
+      "id": "test_reference_note",
+      "title": "[TEST] Памятка смены",
+      "text": "Техническая страница рецепта: открывается после изучения обоих TEST-терминов.",
+      "required_terms": [
+        "test_signal",
+        "test_marker"
+      ]
+    },
+    {
+      "id": "arkadiy_stvor_recipe",
+      "title": "Порция диспетчера («Северный створ»)",
+      "text": "Подавать в рюмке «Кромка» (60 мл): чистый «Северный створ» без воды и содовой. Аркадий уважает тех, кто не разбавляет старую норму.",
+      "required_terms": [
+        "northern_stvor",
+        "night_dispatch"
+      ]
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "arkadiy_memory_demo",
+      "title": "[TEST] Аркадий помнит",
+      "character_id": "arkadiy",
+      "start_node": "arrival",
+      "nodes": [
+        {
+          "id": "arrival",
+          "speaker": "Аркадий",
+          "text": "Добрый вечер. Есть минутка?",
+          "emotion": "neutral",
+          "end": false,
+          "choices": [
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "narrative_shift",
+                  "op": "==",
+                  "value": 1
+                },
+                {
+                  "variable_id": "memory_arkadiy_kind_reply",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "variable_id": "memory_arkadiy_rude_reply",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "id": "listen",
+              "text": "Конечно. Рассказывай, я слушаю.",
+              "target": "kind_reply"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "narrative_shift",
+                  "op": "==",
+                  "value": 1
+                },
+                {
+                  "variable_id": "memory_arkadiy_kind_reply",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "variable_id": "memory_arkadiy_rude_reply",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "id": "interrupt",
+              "text": "Говори короче. У меня и без тебя дел полно.",
+              "target": "rude_reply"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "narrative_shift",
+                  "op": "==",
+                  "value": 1
+                },
+                {
+                  "variable_id": "memory_arkadiy_kind_reply",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "id": "close_kind",
+              "text": "На сегодня хватит. До встречи.",
+              "target": "first_close"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "narrative_shift",
+                  "op": "==",
+                  "value": 1
+                },
+                {
+                  "variable_id": "memory_arkadiy_rude_reply",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "id": "close_rude",
+              "text": "На сегодня хватит. До встречи.",
+              "target": "first_close"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "narrative_shift",
+                  "op": ">",
+                  "value": 1
+                },
+                {
+                  "variable_id": "memory_arkadiy_kind_reply",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "id": "warm_return",
+              "text": "Как ты после нашего разговора?",
+              "target": "kind_recall"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "narrative_shift",
+                  "op": ">",
+                  "value": 1
+                },
+                {
+                  "variable_id": "memory_arkadiy_rude_reply",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "variable_id": "memory_arkadiy_apology",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "id": "tense_return",
+              "text": "Аркадий, ты хотел поговорить?",
+              "target": "rude_recall"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "narrative_shift",
+                  "op": ">",
+                  "value": 1
+                },
+                {
+                  "variable_id": "memory_arkadiy_apology",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "id": "repaired_return",
+              "text": "Рад снова тебя видеть, Аркадий.",
+              "target": "repaired_recall"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "narrative_shift",
+                  "op": ">",
+                  "value": 1
+                },
+                {
+                  "variable_id": "memory_arkadiy_kind_reply",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "variable_id": "memory_arkadiy_rude_reply",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "id": "missed_return",
+              "text": "О чём ты хотел поговорить?",
+              "target": "missed_recall"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "narrative_shift",
+                  "op": ">",
+                  "value": 1
+                },
+                {
+                  "variable_id": "memory_arkadiy_bar_drink",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "id": "drink_recall",
+              "text": "Как тебе напиток, который я приготовил?",
+              "target": "drink_recall"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "testimony_arkadiy_departure",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "variable_id": "narrative_shift",
+                  "op": ">",
+                  "value": 1
+                }
+              ],
+              "id": "hear_arkadiy_departure",
+              "text": "Выслушать: Разговор с Аркадием",
+              "target": "account_arkadiy_departure"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "testimony_arkadiy_departure",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "variable_id": "testimony_voronov_departure",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "variable_id": "testimony_guard_departure",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "id": "compare_accounts",
+              "text": "У меня теперь три разных рассказа.",
+              "target": "accounts_compared"
+            }
+          ],
+          "effects": [
+            {
+              "effect_id": "register_night_incident",
+              "type": "npc_event",
+              "event": "remember",
+              "arg": "incident_night_01"
+            }
+          ],
+          "position": {
+            "x": 0,
+            "y": 320
+          }
+        },
+        {
+          "id": "kind_reply",
+          "speaker": "Аркадий",
+          "text": "Спасибо. Обычно мне даже договорить не дают. Увидимся в следующую смену.",
+          "emotion": "interested",
+          "end": true,
+          "choices": [],
+          "effects": [
+            {
+              "effect_id": "remember_arkadiy_supported",
+              "type": "npc_event",
+              "event": "remember",
+              "arg": "arkadiy_supported"
+            }
+          ],
+          "position": {
+            "x": 350,
+            "y": 0
+          }
+        },
+        {
+          "id": "rude_reply",
+          "speaker": "Аркадий",
+          "text": "Понял. Тогда оставим это на другой раз.",
+          "emotion": "disagree",
+          "end": true,
+          "choices": [],
+          "effects": [
+            {
+              "effect_id": "remember_player_rude_to_arkady",
+              "type": "npc_event",
+              "event": "remember",
+              "arg": "player_rude_to_arkady"
+            }
+          ],
+          "position": {
+            "x": 350,
+            "y": 230
+          }
+        },
+        {
+          "id": "first_close",
+          "speaker": "Аркадий",
+          "text": "До встречи.",
+          "emotion": "neutral",
+          "end": true,
+          "choices": [],
+          "position": {
+            "x": 350,
+            "y": 460
+          },
+          "effects": []
+        },
+        {
+          "id": "kind_recall",
+          "speaker": "Аркадий",
+          "text": "В прошлый раз ты меня выслушал. С тобой можно говорить спокойно.",
+          "emotion": "interested",
+          "end": true,
+          "choices": [],
+          "position": {
+            "x": 350,
+            "y": 690
+          },
+          "effects": []
+        },
+        {
+          "id": "rude_recall",
+          "speaker": "Аркадий",
+          "text": "В прошлый раз ты был не особенно дружелюбен. Я решил, что ты хотел от меня отделаться.",
+          "emotion": "tense",
+          "end": false,
+          "choices": [
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [],
+              "id": "apologize",
+              "text": "Прости за резкость. Я погорячился.",
+              "target": "apology"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [],
+              "id": "hear_account",
+              "text": "Расскажи, как это выглядело с твоей стороны.",
+              "target": "account"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [],
+              "id": "decline",
+              "text": "Давай сегодня без этого.",
+              "target": "decline"
+            }
+          ],
+          "position": {
+            "x": 350,
+            "y": 920
+          },
+          "effects": []
+        },
+        {
+          "id": "apology",
+          "speaker": "Аркадий",
+          "text": "Я помню тот разговор. Но спасибо, что извинился. Давай попробуем ещё раз.",
+          "emotion": "neutral",
+          "end": true,
+          "choices": [],
+          "effects": [
+            {
+              "effect_id": "remember_player_apologized_to_arkady",
+              "type": "npc_event",
+              "event": "remember",
+              "arg": "player_apologized_to_arkady"
+            },
+            {
+              "effect_id": "react_to_apology",
+              "type": "npc_event",
+              "event": "react",
+              "arg": "thoughtful"
+            }
+          ],
+          "position": {
+            "x": 770,
+            "y": 0
+          }
+        },
+        {
+          "id": "account",
+          "speaker": "Аркадий",
+          "text": "Мне показалось, что ты хотел меня выставить. Может, я понял тебя неправильно.",
+          "emotion": "thoughtful",
+          "end": true,
+          "choices": [],
+          "effects": [
+            {
+              "effect_id": "remember_arkadiy_recounted_first_meeting",
+              "type": "npc_event",
+              "event": "remember",
+              "arg": "arkadiy_recounted_first_meeting"
+            }
+          ],
+          "position": {
+            "x": 770,
+            "y": 230
+          }
+        },
+        {
+          "id": "decline",
+          "speaker": "Аркадий",
+          "text": "Как скажешь. Я пока посижу здесь.",
+          "emotion": "tense",
+          "end": true,
+          "choices": [],
+          "position": {
+            "x": 770,
+            "y": 460
+          },
+          "effects": []
+        },
+        {
+          "id": "repaired_recall",
+          "speaker": "Аркадий",
+          "text": "Я помню, как мы начали. Спасибо, что тогда вернулся к разговору.",
+          "emotion": "interested",
+          "end": true,
+          "choices": [],
+          "position": {
+            "x": 770,
+            "y": 690
+          },
+          "effects": []
+        },
+        {
+          "id": "missed_recall",
+          "speaker": "Аркадий",
+          "text": "Хотел познакомиться. Я Аркадий.",
+          "emotion": "neutral",
+          "end": true,
+          "choices": [],
+          "position": {
+            "x": 770,
+            "y": 920
+          },
+          "effects": []
+        },
+        {
+          "id": "drink_recall",
+          "speaker": "Аркадий",
+          "text": "Помню, как ты приготовил мне напиток. Спасибо.",
+          "emotion": "interested",
+          "end": true,
+          "choices": [],
+          "position": {
+            "x": 1190,
+            "y": 0
+          },
+          "effects": []
+        },
+        {
+          "id": "account_arkadiy_departure",
+          "speaker": "Аркадий",
+          "text": "Я покинул здание до полуночи.",
+          "end": true,
+          "choices": [],
+          "effects": [
+            {
+              "effect_id": "heard_arkadiy_departure",
+              "type": "npc_event",
+              "event": "remember",
+              "arg": "heard_arkadiy_departure"
+            }
+          ],
+          "position": {
+            "x": 1190,
+            "y": 230
+          }
+        },
+        {
+          "id": "accounts_compared",
+          "speaker": "Аркадий",
+          "text": "Значит, каждый запомнил эту ночь по-своему.",
+          "end": true,
+          "choices": [],
+          "position": {
+            "x": 1190,
+            "y": 460
+          },
+          "effects": []
+        }
+      ],
+      "test_content": true,
+      "allow_cycles": false
+    },
+    {
+      "id": "inspector_voronov_night_testimony",
+      "title": "[TEST] Рассказ Воронова",
+      "character_id": "inspector_voronov",
+      "start_node": "greeting",
+      "nodes": [
+        {
+          "id": "greeting",
+          "speaker": "Инспектор Воронов",
+          "text": "Хотите услышать, что я знаю о той ночи?",
+          "end": false,
+          "choices": [
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "testimony_voronov_departure",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "id": "hear_voronov_departure",
+              "text": "Выслушать: Рассказ Воронова",
+              "target": "account_voronov_departure"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [],
+              "id": "leave",
+              "text": "До встречи.",
+              "target": "goodbye"
+            }
+          ],
+          "position": {
+            "x": 0,
+            "y": 320
+          },
+          "effects": []
+        },
+        {
+          "id": "account_voronov_departure",
+          "speaker": "Инспектор Воронов",
+          "text": "Я видел Аркадия возле здания в половине первого.",
+          "end": true,
+          "choices": [],
+          "effects": [
+            {
+              "effect_id": "heard_voronov_departure",
+              "type": "npc_event",
+              "event": "remember",
+              "arg": "heard_voronov_departure"
+            }
+          ],
+          "position": {
+            "x": 350,
+            "y": 0
+          }
+        },
+        {
+          "id": "goodbye",
+          "speaker": "Инспектор Воронов",
+          "text": "До встречи.",
+          "end": true,
+          "choices": [],
+          "position": {
+            "x": 350,
+            "y": 230
+          },
+          "effects": []
+        }
+      ],
+      "test_content": true,
+      "allow_cycles": false
+    },
+    {
+      "id": "night_guard_night_testimony",
+      "title": "[TEST] Рассказ ночного сторожа",
+      "character_id": "night_guard",
+      "start_node": "greeting",
+      "nodes": [
+        {
+          "id": "greeting",
+          "speaker": "Ночной сторож",
+          "text": "Хотите услышать, что я знаю о той ночи?",
+          "end": false,
+          "choices": [
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "testimony_guard_departure",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "id": "hear_guard_departure",
+              "text": "Выслушать: Рассказ ночного сторожа",
+              "target": "account_guard_departure"
+            },
+            {
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": [],
+              "id": "leave",
+              "text": "До встречи.",
+              "target": "goodbye"
+            }
+          ],
+          "position": {
+            "x": 0,
+            "y": 320
+          },
+          "effects": []
+        },
+        {
+          "id": "account_guard_departure",
+          "speaker": "Ночной сторож",
+          "text": "Аркадий той ночью вообще не выходил из дома.",
+          "end": true,
+          "choices": [],
+          "effects": [
+            {
+              "effect_id": "heard_guard_departure",
+              "type": "npc_event",
+              "event": "remember",
+              "arg": "heard_guard_departure"
+            }
+          ],
+          "position": {
+            "x": 350,
+            "y": 0
+          }
+        },
+        {
+          "id": "goodbye",
+          "speaker": "Ночной сторож",
+          "text": "До встречи.",
+          "end": true,
+          "choices": [],
+          "position": {
+            "x": 350,
+            "y": 230
+          },
+          "effects": []
+        }
+      ],
+      "test_content": true,
+      "allow_cycles": false
+    },
+    {
+      "id": "arkadiy_intro",
+      "character_id": "arkadiy",
+      "title": "Аркадий: Разговор после смены",
+      "start_node": "opening",
+      "allow_cycles": false,
+      "test_content": false,
+      "nodes": [
+        {
+          "id": "opening",
+          "speaker": "Аркадий",
+          "character_id": "arkadiy",
+          "emotion": "tense",
+          "text": "Сыро сегодня у переезда. Налей чего-нибудь простого, без ваших новых смесей. На **Северный створ** теперь мало кто заглядывает, но старую привычку за месяц не вытравишь.",
+          "end": false,
+          "position": {
+            "x": 80,
+            "y": 200
+          },
+          "notes": "Стартовая реплика Аркадия. Выдаёт термин northern_stvor.",
+          "effects": [
+            {
+              "effect_id": "grant_northern_stvor",
+              "type": "grant_term",
+              "term_id": "northern_stvor"
+            },
+            {
+              "effect_id": "mark_drink_hint",
+              "type": "set_variable",
+              "variable_id": "arkadiy_ordered_stvor",
+              "value": true
+            }
+          ],
+          "choices": [
+            {
+              "id": "respect_habit",
+              "text": "Чистый «Северный створ» в рюмке? Сейчас таких гостей почти не осталось.",
+              "target": "warm_up",
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": []
+            },
+            {
+              "id": "ask_transfer_direct",
+              "text": "Говорят, тебя сняли с линии месяц назад. Что там стряслось?",
+              "target": "defensive_reply",
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": []
+            }
+          ]
+        },
+        {
+          "id": "warm_up",
+          "speaker": "Аркадий",
+          "character_id": "arkadiy",
+          "emotion": "interested",
+          "text": "Вижу, глаз у тебя намётанный. Когда двадцать лет сидишь в **ночной диспетчерской**, по одному стуку колёс понимаешь, порожний идёт или гружёный.",
+          "end": false,
+          "position": {
+            "x": 520,
+            "y": 60
+          },
+          "notes": "Игрок проявил уважение — доверие Аркадия растёт (+2).",
+          "effects": [
+            {
+              "effect_id": "grant_night_dispatch",
+              "type": "grant_term",
+              "term_id": "night_dispatch"
+            },
+            {
+              "effect_id": "trust_up_warm",
+              "type": "add_variable",
+              "variable_id": "arkadiy_trust",
+              "value": 2
+            },
+            {
+              "effect_id": "mood_open_warm",
+              "type": "set_variable",
+              "variable_id": "arkadiy_mood",
+              "value": "open"
+            },
+            {
+              "effect_id": "request_stvor_shot",
+              "type": "service_event",
+              "event": "request_drink",
+              "arg": "test_stvor"
+            }
+          ],
+          "choices": [
+            {
+              "id": "ask_about_night_train",
+              "text": "И какой же состав прошёл мимо тебя месяц назад?",
+              "target": "siding_story",
+              "required_terms": [
+                "northern_stvor"
+              ],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "arkadiy_trust",
+                  "op": ">=",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "keep_quiet_toast",
+              "text": "Меньше знаешь — крепче спишь. За спокойную смену.",
+              "target": "calm_goodbye",
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": []
+            }
+          ]
+        },
+        {
+          "id": "defensive_reply",
+          "speaker": "Аркадий",
+          "character_id": "arkadiy",
+          "emotion": "disagree",
+          "text": "Много говорят. В **ночной диспетчерской** лишние вопросы задавать не принято, особенно когда за стойкой незнакомый человек.",
+          "end": false,
+          "position": {
+            "x": 520,
+            "y": 380
+          },
+          "notes": "Игрок надавил слишком рано — доверие падает (-1).",
+          "effects": [
+            {
+              "effect_id": "grant_dispatch_defensive",
+              "type": "grant_term",
+              "term_id": "night_dispatch"
+            },
+            {
+              "effect_id": "trust_down_press",
+              "type": "add_variable",
+              "variable_id": "arkadiy_trust",
+              "value": -1
+            },
+            {
+              "effect_id": "mood_suspicious",
+              "type": "set_variable",
+              "variable_id": "arkadiy_mood",
+              "value": "suspicious"
+            }
+          ],
+          "choices": [
+            {
+              "id": "apologize_back_off",
+              "text": "Не бери в голову, я не из инспекции. Просто поддерживаю разговор.",
+              "target": "siding_story",
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": []
+            },
+            {
+              "id": "end_tense",
+              "text": "Ладно, не будем о работе.",
+              "target": "cold_goodbye",
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": []
+            }
+          ]
+        },
+        {
+          "id": "siding_story",
+          "speaker": "Аркадий",
+          "character_id": "arkadiy",
+          "emotion": "thoughtful",
+          "text": "За депо есть старая **тупиковая ветка**. По бумагам она разобрана ещё три года назад. Только рельсы там блестят так, будто каждую неделю металл возят.",
+          "end": false,
+          "position": {
+            "x": 980,
+            "y": 180
+          },
+          "effects": [
+            {
+              "effect_id": "grant_blind_siding",
+              "type": "grant_term",
+              "term_id": "blind_siding"
+            }
+          ],
+          "choices": [
+            {
+              "id": "trusted_archive_question",
+              "text": "Ты ведь сохранил путевой лист той ночи, верно?",
+              "target": "secret_archive_reveal",
+              "required_terms": [
+                "night_dispatch",
+                "blind_siding"
+              ],
+              "required_conclusions": [],
+              "conditions": [
+                {
+                  "variable_id": "arkadiy_trust",
+                  "op": ">=",
+                  "value": 2
+                }
+              ]
+            },
+            {
+              "id": "deduction_witness_branch",
+              "text": "Тебя перевели с линии, потому что ты видел, кто принимал этот состав.",
+              "target": "secret_archive_reveal",
+              "required_terms": [
+                "blind_siding"
+              ],
+              "required_conclusions": [
+                "arkadiy_fears_inspection"
+              ],
+              "conditions": []
+            },
+            {
+              "id": "safe_wrap_up",
+              "text": "Пей, пока не выдохлось. На улице ветер крепчает.",
+              "target": "calm_goodbye",
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": []
+            }
+          ]
+        },
+        {
+          "id": "secret_archive_reveal",
+          "speaker": "Аркадий",
+          "character_id": "arkadiy",
+          "emotion": "thoughtful",
+          "text": "Тише ты… Меня посадили в **опечатанный архив**, думали — списали старика. А я ведь дубликат журнала под обшивкой оставил. Если со мной что случится — ищи за старым распределительным щитом.",
+          "end": true,
+          "position": {
+            "x": 1460,
+            "y": 60
+          },
+          "notes": "Секретный финал разговора при высоком доверии или выводе в дневнике.",
+          "effects": [
+            {
+              "effect_id": "grant_sealed_archive",
+              "type": "grant_term",
+              "term_id": "sealed_archive"
+            },
+            {
+              "effect_id": "flag_secret_shared",
+              "type": "set_variable",
+              "variable_id": "arkadiy_shared_secret",
+              "value": true
+            },
+            {
+              "effect_id": "trust_max_bonus",
+              "type": "add_variable",
+              "variable_id": "arkadiy_trust",
+              "value": 2
+            }
+          ],
+          "choices": []
+        },
+        {
+          "id": "calm_goodbye",
+          "speaker": "Аркадий",
+          "character_id": "arkadiy",
+          "emotion": "neutral",
+          "text": "Спасибо за тишину, бармен. В следующий раз загляну, когда смена уляжется.",
+          "end": true,
+          "position": {
+            "x": 1460,
+            "y": 240
+          },
+          "effects": [],
+          "choices": []
+        },
+        {
+          "id": "cold_goodbye",
+          "speaker": "Аркадий",
+          "character_id": "arkadiy",
+          "emotion": "tense",
+          "text": "Бывай. И не советую расспрашивать людей о том, что тебя не касается.",
+          "end": true,
+          "position": {
+            "x": 1460,
+            "y": 410
+          },
+          "effects": [],
+          "choices": []
+        }
+      ]
+    }
+  ],
+  "narrative_events": [
+    {
+      "id": "arkadiy_supported",
+      "fact": "Игрок выслушал Аркадия и ответил сочувственно.",
+      "records": [
+        {
+          "id": "arkadiy_kind_reply",
+          "kind": "memory",
+          "character_id": "arkadiy",
+          "text": "Бармен дал мне договорить.",
+          "interpretation": "Возможно, ему действительно важно меня понять.",
+          "emotion": "interested",
+          "significance": 0.7,
+          "confidence": 0.8
+        },
+        {
+          "id": "arkadiy_heard_offer",
+          "kind": "knowledge",
+          "character_id": "arkadiy",
+          "text": "Бармен предложил выслушать меня."
+        }
+      ]
+    },
+    {
+      "id": "player_rude_to_arkady",
+      "fact": "Игрок перебил Аркадия и ответил резко.",
+      "records": [
+        {
+          "id": "arkadiy_rude_reply",
+          "kind": "memory",
+          "character_id": "arkadiy",
+          "text": "Бармен перебил меня.",
+          "interpretation": "Он хотел показать, что я здесь лишний.",
+          "emotion": "tense",
+          "significance": 0.8,
+          "confidence": 0.65
+        },
+        {
+          "id": "arkadiy_player_dislikes_him",
+          "kind": "belief",
+          "character_id": "arkadiy",
+          "text": "Бармен относится ко мне с неприязнью."
+        }
+      ]
+    },
+    {
+      "id": "player_apologized_to_arkady",
+      "fact": "Игрок извинился перед Аркадием за резкий ответ.",
+      "records": [
+        {
+          "id": "arkadiy_apology",
+          "kind": "memory",
+          "character_id": "arkadiy",
+          "text": "Бармен попросил прощения за резкость.",
+          "interpretation": "Он готов признать, что погорячился. Можно попробовать поговорить снова.",
+          "emotion": "thoughtful",
+          "significance": 0.8,
+          "confidence": 0.8
+        },
+        {
+          "id": "arkadiy_player_open_to_repair",
+          "kind": "belief",
+          "character_id": "arkadiy",
+          "text": "Бармен готов восстановить отношения."
+        }
+      ]
+    },
+    {
+      "id": "arkadiy_recounted_first_meeting",
+      "fact": "Аркадий рассказал, как понял первую встречу.",
+      "records": [
+        {
+          "id": "arkadiy_first_meeting_account",
+          "kind": "testimony",
+          "character_id": "arkadiy",
+          "event_id": "player_rude_to_arkady",
+          "text": "Мне показалось, что ты хотел меня выставить.",
+          "source": "Слова Аркадия во второй беседе",
+          "related": [
+            "fact_player_rude_to_arkady",
+            "belief_arkadiy_player_dislikes_him"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arkadiy_served_preparation",
+      "fact": "Аркадию подали приготовленный за стойкой напиток.",
+      "service": {
+        "character_id": "arkadiy",
+        "drink_id": "prepared_drink"
+      },
+      "records": [
+        {
+          "id": "arkadiy_bar_drink",
+          "kind": "memory",
+          "character_id": "arkadiy",
+          "text": "Бармен приготовил мне напиток.",
+          "interpretation": "Он выполнил мою просьбу.",
+          "emotion": "neutral",
+          "significance": 0.4,
+          "confidence": 1
+        }
+      ]
+    },
+    {
+      "id": "incident_night_01",
+      "fact": "Получено сообщение о ночном происшествии у здания.",
+      "records": []
+    },
+    {
+      "id": "heard_arkadiy_departure",
+      "fact": "Игрок получил свидетельство разговор с аркадием.",
+      "records": [
+        {
+          "kind": "testimony",
+          "id": "arkadiy_departure",
+          "character_id": "arkadiy",
+          "text": "Я покинул здание до полуночи.",
+          "source": "Разговор с Аркадием",
+          "event_id": "incident_night_01",
+          "related": [
+            "fact_incident_night_01"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "heard_voronov_departure",
+      "fact": "Игрок получил свидетельство рассказ воронова.",
+      "records": [
+        {
+          "kind": "testimony",
+          "id": "voronov_departure",
+          "character_id": "inspector_voronov",
+          "text": "Я видел Аркадия возле здания в половине первого.",
+          "source": "Рассказ Воронова",
+          "event_id": "incident_night_01",
+          "related": [
+            "fact_incident_night_01"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "heard_guard_departure",
+      "fact": "Игрок получил свидетельство рассказ ночного сторожа.",
+      "records": [
+        {
+          "kind": "testimony",
+          "id": "guard_departure",
+          "character_id": "night_guard",
+          "text": "Аркадий той ночью вообще не выходил из дома.",
+          "source": "Рассказ ночного сторожа",
+          "event_id": "incident_night_01",
+          "related": [
+            "fact_incident_night_01"
+          ]
+        }
+      ]
+    }
+  ],
+  "testimony_links": [
+    {
+      "from": "arkadiy_departure",
+      "to": "voronov_departure",
+      "kind": "contradiction"
+    },
+    {
+      "from": "arkadiy_departure",
+      "to": "guard_departure",
+      "kind": "contradiction"
+    },
+    {
+      "from": "voronov_departure",
+      "to": "guard_departure",
+      "kind": "contradiction"
+    }
+  ]
+}

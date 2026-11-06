@@ -12,7 +12,8 @@ import {
   ReasoningGroup,
 } from '../types/narrative';
 import { DEFAULT_ARKADIY_PROJECT } from '../data/arkadiyProject';
-import { compileGodotFiles } from '../utils/godotExporter';
+import { validateProject } from '../utils/validator';
+import { assertProjectShape } from '../utils/projectImport';
 
 export type EditorTab =
   | 'characters'
@@ -20,6 +21,7 @@ export type EditorTab =
   | 'variables'
   | 'glossary'
   | 'simulator'
+  | 'events'
   | 'export';
 
 interface SyncStatus {
@@ -30,6 +32,7 @@ interface SyncStatus {
 
 interface NarrativeStoreState {
   project: NarrativeProject;
+  updateNarrative: (patch: Pick<Partial<NarrativeProject>, 'narrative_events' | 'testimony_links'>) => void;
   activeTab: EditorTab;
   selectedCharacterId: string;
   selectedDialogueId: string;
@@ -123,16 +126,17 @@ interface NarrativeStoreState {
 
 const STORAGE_KEY = 'dark_alone_narrative_editor_v1';
 
-function loadInitialProject(): NarrativeProject {
+function readLocalProject(): NarrativeProject | undefined {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      return JSON.parse(raw) as NarrativeProject;
+      const project: unknown = JSON.parse(raw);
+      assertProjectShape(project);
+      return project;
     }
   } catch {
     // ignore storage errors
   }
-  return structuredClone(DEFAULT_ARKADIY_PROJECT);
 }
 
 function persistLocal(project: NarrativeProject) {
@@ -144,7 +148,7 @@ function persistLocal(project: NarrativeProject) {
 }
 
 export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
-  const initial = loadInitialProject();
+  const initial = readLocalProject() ?? structuredClone(DEFAULT_ARKADIY_PROJECT);
 
   return {
     project: initial,
@@ -768,6 +772,7 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
       }),
 
     loadProjectFromServer: async () => {
+      if (readLocalProject()) return;
       try {
         const res = await fetch('/api/project');
         if (!res.ok) return;
@@ -776,6 +781,8 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
           project?: NarrativeProject;
         };
         if (data.exists && data.project) {
+          if (readLocalProject()) return;
+          assertProjectShape(data.project);
           persistLocal(data.project);
           set({
             project: data.project,
@@ -784,8 +791,8 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             selectedNodeId: data.project.dialogues[0]?.start_node || null,
           });
         }
-      } catch {
-        // Offline or preview mode
+      } catch (error) {
+        if (error instanceof Error && !(error instanceof TypeError)) set({ syncStatus: { state: 'error', message: error.message } });
       }
     },
 
@@ -828,8 +835,13 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
 
     syncWithGodot: async () => {
       const project = get().project;
+      const issue = validateProject(project).find((item) => item.level === 'error');
+      if (issue) {
+        const error = `${issue.path}: ${issue.message}`;
+        set({ syncStatus: { state: 'error', message: error } });
+        return { ok: false, error };
+      }
       persistLocal(project);
-      const compiled = compileGodotFiles(project);
       set({
         syncStatus: {
           state: 'saving',
@@ -844,10 +856,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
           body: JSON.stringify({
             godotPath: project.godot_project_path,
             project,
-            files: compiled.map((f) => ({
-              relativePath: f.relativePath,
-              content: f.content,
-            })),
           }),
         });
         const data = (await res.json()) as {
@@ -886,6 +894,9 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
     },
 
     importProjectJson: (project) => {
+      assertProjectShape(project);
+      const issue = validateProject(project).find((item) => item.level === 'error');
+      if (issue) throw new Error(`${issue.path}: ${issue.message}`);
       persistLocal(project);
       set({
         project,
@@ -894,6 +905,12 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
         selectedNodeId: project.dialogues[0]?.start_node || null,
       });
     },
+
+    updateNarrative: (patch) => set((state) => {
+      const project = { ...state.project, ...patch };
+      persistLocal(project);
+      return { project };
+    }),
 
     resetToArkadiyDefault: () => {
       const fresh = structuredClone(DEFAULT_ARKADIY_PROJECT);

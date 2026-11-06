@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNarrativeStore, EditorTab } from './store/useNarrativeStore';
 import { CharacterEditor } from './components/CharacterEditor';
+import { MemoryEditor } from './components/MemoryEditor';
 import { DialogueGraphEditor } from './components/DialogueGraphEditor';
 import { VariablesAndGlossaryEditor } from './components/VariablesAndGlossaryEditor';
 import { DialogueSimulator } from './components/DialogueSimulator';
@@ -36,6 +37,7 @@ export const App: React.FC = () => {
     icon: React.ReactNode;
     badge?: number;
   }> = [
+    { id: 'events', label: 'События', icon: <BookOpen size={16} />, badge: project.narrative_events?.length },
     {
       id: 'characters',
       label: 'Персонажи',
@@ -126,6 +128,7 @@ export const App: React.FC = () => {
       {/* Main Content Area */}
       <main className="app-main">
         {activeTab === 'characters' && <CharacterEditor />}
+        {activeTab === 'events' && <MemoryEditor />}
         {activeTab === 'dialogues' && <DialogueGraphEditor />}
         {activeTab === 'variables' && (
           <VariablesAndGlossaryEditor mode="variables" />

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { MemoryEditor } from './MemoryEditor';
 import {
   DRINK_INGREDIENTS,
   NPC_EMOTIONS,
@@ -172,6 +173,10 @@ export const CharacterEditor: React.FC = () => {
             )}
           </div>
 
+          <details className="card memory-details" key={selectedChar.id}>
+            <summary>Память, знания, убеждения и свидетельства</summary>
+            <MemoryEditor characterId={selectedChar.id} />
+          </details>
           <div className="form-grid-2">
             <div className="card">
               <h3>Основные данные</h3>
