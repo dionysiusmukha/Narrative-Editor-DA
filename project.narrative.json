@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "project_name": "Dark Alone — Сценарий Аркадия",
-  "godot_project_path": "c:\\Dev\\Dark-Alone",
+  "godot_project_path": "D:\\Prog\\Dark-Alone",
   "characters": [
     {
       "id": "arkadiy",
@@ -236,7 +236,7 @@
   "dialogues": [
     {
       "id": "arkadiy_intro",
-      "character_id": "arkadiy",
+      "character_id": "inspector_voronov",
       "title": "Аркадий: Разговор после смены",
       "start_node": "opening",
       "allow_cycles": false,
@@ -250,8 +250,8 @@
           "text": "Сыро сегодня у переезда. Налей чего-нибудь простого, без ваших новых смесей. На **Северный створ** теперь мало кто заглядывает, но старую привычку за месяц не вытравишь.",
           "end": false,
           "position": {
-            "x": 80,
-            "y": 200
+            "x": -12.495997350213088,
+            "y": 236.99839894008534
           },
           "notes": "Стартовая реплика Аркадия. Выдаёт термин northern_stvor.",
           "effects": [
@@ -294,8 +294,8 @@
           "text": "Вижу, глаз у тебя намётанный. Когда двадцать лет сидишь в **ночной диспетчерской**, по одному стуку колёс понимаешь, порожний идёт или гружёный.",
           "end": false,
           "position": {
-            "x": 520,
-            "y": 60
+            "x": 531.3678742488279,
+            "y": -79.47108738226785
           },
           "notes": "Игрок проявил уважение — доверие Аркадия растёт (+2).",
           "effects": [
@@ -358,8 +358,8 @@
           "text": "Много говорят. В **ночной диспетчерской** лишние вопросы задавать не принято, особенно когда за стойкой незнакомый человек.",
           "end": false,
           "position": {
-            "x": 520,
-            "y": 380
+            "x": 556.9983989400853,
+            "y": 436.58578661424815
           },
           "notes": "Игрок надавил слишком рано — доверие падает (-1).",
           "effects": [
@@ -408,8 +408,8 @@
           "text": "За депо есть старая **тупиковая ветка**. По бумагам она разобрана ещё три года назад. Только рельсы там блестят так, будто каждую неделю металл возят.",
           "end": false,
           "position": {
-            "x": 980,
-            "y": 180
+            "x": 1116.407929655898,
+            "y": -49.739670999407
           },
           "effects": [
             {
@@ -466,8 +466,8 @@
           "text": "Тише ты… Меня посадили в **опечатанный архив**, думали — списали старика. А я ведь дубликат журнала под обшивкой оставил. Если со мной что случится — ищи за старым распределительным щитом.",
           "end": true,
           "position": {
-            "x": 1460,
-            "y": 60
+            "x": 1771.5844287929456,
+            "y": 88.71745887492585
           },
           "notes": "Секретный финал разговора при высоком доверии или выводе в дневнике.",
           "effects": [
@@ -499,8 +499,8 @@
           "text": "Спасибо за тишину, бармен. В следующий раз загляну, когда смена уляжется.",
           "end": true,
           "position": {
-            "x": 1460,
-            "y": 240
+            "x": 1306.3615950191465,
+            "y": 601.839981824066
           },
           "effects": [],
           "choices": []
@@ -513,8 +513,58 @@
           "text": "Бывай. И не советую расспрашивать людей о том, что тебя не касается.",
           "end": true,
           "position": {
-            "x": 1460,
-            "y": 410
+            "x": 1320.3629965531825,
+            "y": 839.2023590988977
+          },
+          "effects": [],
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "dialogue_inspektor_voronov_pervyy_dialog",
+      "character_id": "arkadiy",
+      "title": "Первый диалог",
+      "start_node": "node_inspektor_voronov_nachalnaya_replika",
+      "allow_cycles": false,
+      "test_content": false,
+      "nodes": [
+        {
+          "id": "node_inspektor_voronov_nachalnaya_replika",
+          "title": "Начальная реплика",
+          "speaker": "Инспектор Воронов",
+          "character_id": "inspector_voronov",
+          "emotion": "neutral",
+          "text": "Начальная реплика разговора...",
+          "end": false,
+          "position": {
+            "x": 100,
+            "y": 180
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "choice_inspektor_voronov_zakonchit_razgovor",
+              "title": "Закончить разговор",
+              "text": "Закончить разговор",
+              "target": "node_inspektor_voronov_zavershenie_razgovora",
+              "required_terms": [],
+              "required_conclusions": [],
+              "conditions": []
+            }
+          ]
+        },
+        {
+          "id": "node_inspektor_voronov_zavershenie_razgovora",
+          "title": "Завершение разговора",
+          "speaker": "Инспектор Воронов",
+          "character_id": "inspector_voronov",
+          "emotion": "neutral",
+          "text": "Завершение разговора.",
+          "end": true,
+          "position": {
+            "x": 786.6555171143311,
+            "y": 212.4546733045173
           },
           "effects": [],
           "choices": []
