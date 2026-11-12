@@ -15,6 +15,9 @@ export const DRINK_INGREDIENTS: Array<{ id: string; label: string }> = [
   { id: 'test_heavy', label: 'Плотный компонент (test_heavy)' },
   { id: 'test_base', label: 'Базовый компонент (test_base)' },
   { id: 'test_light', label: 'Лёгкий компонент (test_light)' },
+    { id: 'test_equal', label: 'Плотный текучий компонент (test_equal)' },
+    { id: 'test_oil', label: 'Отдельная фаза (test_oil)' },
+    { id: 'test_trace', label: 'Добавка-маркер (test_trace)' },
   { id: 'test_shot', label: 'Рюмка «Кромка» 60 мл (test_shot)' },
   { id: 'test_glass', label: 'Стакан «Гранитоль» 240 мл (test_glass)' },
 ];
@@ -124,6 +127,30 @@ export interface DialogueChoice {
   conditions: ChoiceCondition[];
 }
 
+export interface AuthoredDrink {
+  id: string;
+  title: string;
+  description: string;
+  vessel_id: string;
+  components_ml: Record<string, number>;
+  tolerance_ml: number;
+}
+
+export interface DrinkOutcome {
+  drink_id: string;
+  target: string;
+  consumed: boolean;
+}
+
+export interface DrinkGate {
+  expected_drink_id: string;
+  resume_after: 'served' | 'sipped';
+  on_expected: string;
+  on_other_drinks: DrinkOutcome[];
+  on_fallback: string;
+  fallback_consumed: boolean;
+}
+
 export type DialogueEffectType =
   | 'grant_term'
   | 'set_variable'
@@ -152,6 +179,7 @@ export interface DialogueNode {
   end: boolean;
   effects: DialogueEffect[];
   choices: DialogueChoice[];
+  drink_gate?: DrinkGate;
   position: { x: number; y: number };
   notes?: string;
 }
@@ -180,6 +208,7 @@ export interface NarrativeProject {
   reasoning_links: ReasoningLink[];
   journal_recipes: JournalRecipe[];
   dialogues: DialogueDocument[];
+  drinks?: AuthoredDrink[];
   narrative_events?: NarrativeEvent[];
   testimony_links?: TestimonyLink[];
 }

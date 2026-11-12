@@ -16,6 +16,15 @@ export function isValidSnakeCaseId(id: string): boolean {
 
 export function validateProject(project: NarrativeProject): ValidationIssue[] {
   const issues: ValidationIssue[] = validateJournal(project);
+  const drinkIds = new Set<string>();
+  for (const drink of project.drinks || []) {
+    if (!isValidSnakeCaseId(drink.id) || drinkIds.has(drink.id)) issues.push({ level: 'error', path: `drinks.${drink.id}`, message: 'Некорректный или повторный ID напитка' });
+    drinkIds.add(drink.id);
+      const capacity = drink.vessel_id === 'test_shot' ? 60 : drink.vessel_id === 'test_glass' ? 240 : 0;
+      if (!drink.title.trim() || !capacity || !Number.isFinite(drink.tolerance_ml) || drink.tolerance_ml < 0 || drink.tolerance_ml > 20 || Object.keys(drink.components_ml).length === 0 || Object.values(drink.components_ml).reduce((total, ml) => total + ml, 0) > capacity || Object.entries(drink.components_ml).some(([id, ml]) => !['test_stvor', 'test_soda', 'test_water', 'test_heavy', 'test_base', 'test_light', 'test_equal', 'test_oil', 'test_trace'].includes(id) || !Number.isFinite(ml) || ml <= 0)) {
+      issues.push({ level: 'error', path: `drinks.${drink.id}`, message: `Напиток ${drink.id}: проверьте название, посуду, состав и допуск` });
+    }
+  }
   const characterIds = new Set<string>();
   for (const character of project.characters) {
     if (!isValidSnakeCaseId(character.id) || characterIds.has(character.id)) {
@@ -102,7 +111,7 @@ export function validateProject(project: NarrativeProject): ValidationIssue[] {
     if (project.narrative_events?.length) {
       for (const condition of computedConditions(project.narrative_events, dialogue.character_id)) allowed.add(condition.id);
     }
-    issues.push(...validateDialogue(dialogue, termIds, conclusionIds, variableIds, allowed));
+    issues.push(...validateDialogue(dialogue, termIds, conclusionIds, variableIds, allowed, drinkIds));
   }
 
   return [...issues, ...validateMemoryProject(project), ...validateStartRules(project)];
@@ -113,7 +122,8 @@ export function validateDialogue(
   termIds: Set<string>,
   conclusionIds: Set<string>,
   variableIds: Set<string>,
-  conditionIds = variableIds
+  conditionIds = variableIds,
+  drinkIds: Set<string> = new Set()
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
@@ -188,6 +198,13 @@ export function validateDialogue(
       });
     }
 
+    if (node.drink_gate) {
+      const gate = node.drink_gate;
+      const refs = [gate.expected_drink_id, ...gate.on_other_drinks.map((item) => item.drink_id)];
+      if (node.end || node.choices.length || refs.some((id) => !drinkIds.has(id)) || new Set(refs).size !== refs.length || !['served', 'sipped'].includes(gate.resume_after) || !gate.on_expected || !gate.on_fallback || gate.on_other_drinks.some((item) => !item.target || typeof item.consumed !== 'boolean')) {
+        issues.push({ level: 'error', dialogueId: dialogue.id, nodeId: node.id, path: `node.${node.id}.drink_gate`, message: `Пауза напитка в узле ${node.id}: проверьте рецепт, момент, исходы и отсутствие обычных ответов` });
+      }
+    }
     if (node.end && node.choices.length > 0) {
       issues.push({
         level: 'error',
@@ -198,7 +215,7 @@ export function validateDialogue(
       });
     }
 
-    if (!node.end && node.choices.length === 0) {
+    if (!node.end && node.choices.length === 0 && !node.drink_gate) {
       issues.push({
         level: 'error',
         dialogueId: dialogue.id,
@@ -348,6 +365,13 @@ export function validateDialogue(
   }
 
   for (const [id, node] of nodeMap.entries()) {
+    const gateTargets = node.drink_gate ? [node.drink_gate.on_expected, node.drink_gate.on_fallback, ...node.drink_gate.on_other_drinks.map((item) => item.target)] : [];
+    for (const target of gateTargets) {
+      if (!nodeMap.has(target)) { issues.push({ level: 'error', dialogueId: dialogue.id, nodeId: id, path: `node.${id}.drink_gate`, message: `Пауза напитка ведёт в отсутствующий узел ${target}` }); continue; }
+      edges.get(id)!.push(target);
+      reverse.get(target)!.push(id);
+      degree.set(target, (degree.get(target) || 0) + 1);
+    }
     for (const choice of node.choices) {
       if (!choice.target || !nodeMap.has(choice.target)) {
         issues.push({

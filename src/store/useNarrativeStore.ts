@@ -25,6 +25,7 @@ export type EditorTab =
   | 'glossary'
   | 'simulator'
   | 'events'
+  | 'drinks'
   | 'export';
 
 interface SyncStatus {
@@ -35,7 +36,7 @@ interface SyncStatus {
 
 interface NarrativeStoreState {
   project: NarrativeProject;
-  updateNarrative: (patch: Pick<Partial<NarrativeProject>, 'narrative_events' | 'testimony_links' | 'journal_layout'>) => void;
+  updateNarrative: (patch: Pick<Partial<NarrativeProject>, 'narrative_events' | 'testimony_links' | 'journal_layout' | 'drinks'>) => void;
   activeTab: EditorTab;
   selectedCharacterId: string;
   selectedDialogueId: string;
@@ -441,7 +442,8 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
                 const updated = { ...n, ...patch };
                 if (patch.end === true) {
                   updated.choices = [];
-                } else if (patch.end === false && updated.choices.length === 0) {
+                  delete updated.drink_gate;
+                } else if (patch.end === false && updated.choices.length === 0 && !updated.drink_gate) {
                   const fallbackTarget =
                     d.nodes.find((other) => other.id !== nodeId)?.id || nodeId;
                   updated.choices = [
@@ -483,6 +485,12 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
                   ...c,
                   target: c.target === oldId ? newId : c.target,
                 })),
+                drink_gate: n.drink_gate ? {
+                  ...n.drink_gate,
+                  on_expected: n.drink_gate.on_expected === oldId ? newId : n.drink_gate.on_expected,
+                  on_fallback: n.drink_gate.on_fallback === oldId ? newId : n.drink_gate.on_fallback,
+                  on_other_drinks: n.drink_gate.on_other_drinks.map((outcome) => ({ ...outcome, target: outcome.target === oldId ? newId : outcome.target })),
+                } : undefined,
               })),
             };
           }),

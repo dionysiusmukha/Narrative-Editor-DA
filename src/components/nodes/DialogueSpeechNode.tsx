@@ -143,7 +143,10 @@ export const DialogueSpeechNode: React.FC<NodeProps> = ({ data }) => {
       )}
 
       {/* Player Choices & Output Handles */}
-      {!node.end && (
+      {node.drink_gate && <div className="rf-choices-box"><div className="rf-section-caption">Ожидает: {node.drink_gate.expected_drink_id}</div>
+        {[['drink_expected', 'Ожидаемый'], ['drink_fallback', 'Другой'], ...node.drink_gate.on_other_drinks.map((item, index) => [`drink_other_${index}`, item.drink_id])].map(([id, label]) => <div className="rf-choice-item" key={id}>{label}<Handle type="source" position={Position.Right} id={id} className="rf-handle rf-handle-source" /></div>)}
+      </div>}
+      {!node.end && !node.drink_gate && (
         <div className="rf-choices-box">
           <div className="rf-section-caption">Варианты ответа</div>
           {node.choices.map((ch) => {

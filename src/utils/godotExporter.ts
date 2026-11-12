@@ -12,6 +12,11 @@ export interface ExportedGodotFile {
  */
 export function compileGodotFiles(project: NarrativeProject): ExportedGodotFile[] {
   const files: ExportedGodotFile[] = [];
+  if (project.drinks?.length) files.push({
+    relativePath: 'content/drinks/narrative_drinks.json',
+    description: 'Авторские напитки для сюжетных диалогов',
+    content: JSON.stringify({ schema_version: 1, drinks: project.drinks }, null, 2) + '\n',
+  });
 
   // 1. Словарь терминов, групп выводов и рецептов дневника (content/glossary/narrative_terms.json)
   const glossaryJson = {
@@ -186,6 +191,7 @@ export function compileGodotFiles(project: NarrativeProject): ExportedGodotFile[
                 arg: ef.arg || 'neutral',
               };
             }),
+            ...(n.drink_gate ? { drink_gate: n.drink_gate } : {}),
             choices: (n.choices || []).map((ch) => {
               const chObj: Record<string, unknown> = {
                 id: ch.id,

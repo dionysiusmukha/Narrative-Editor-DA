@@ -21,6 +21,7 @@ import {
   NarrativeProject,
   DialogueEffectType,
   DRINK_INGREDIENTS,
+  DrinkGate,
   NPC_EMOTIONS,
   NpcEmotion,
 } from '../types/narrative';
@@ -150,6 +151,17 @@ export const DialogueGraphEditor: React.FC = () => {
     const edges: Edge[] = [];
     for (const node of currentDialogue.nodes) {
       if (node.end) continue;
+      if (node.drink_gate) {
+        const gate = node.drink_gate;
+        for (const [handle, target, label] of [
+          ['drink_expected', gate.on_expected, 'ожидаемый'],
+          ['drink_fallback', gate.on_fallback, 'другой'],
+          ...gate.on_other_drinks.map((outcome, index) => [`drink_other_${index}`, outcome.target, outcome.drink_id]),
+        ]) {
+          if (target) edges.push({ id: `e-${node.id}-${handle}-${target}`, source: node.id, sourceHandle: handle, target, label, markerEnd: { type: MarkerType.ArrowClosed } });
+        }
+        continue;
+      }
       for (const ch of node.choices) {
         if (!ch.target) continue;
         const hasCond =
@@ -208,6 +220,17 @@ export const DialogueGraphEditor: React.FC = () => {
       ) {
         return;
       }
+      const sourceNode = currentDialogue.nodes.find((node) => node.id === connection.source);
+      if (sourceNode?.drink_gate) {
+        const gate = sourceNode.drink_gate;
+        if (connection.sourceHandle === 'drink_expected') updateDialogueNode(currentDialogue.id, sourceNode.id, { drink_gate: { ...gate, on_expected: connection.target } });
+        else if (connection.sourceHandle === 'drink_fallback') updateDialogueNode(currentDialogue.id, sourceNode.id, { drink_gate: { ...gate, on_fallback: connection.target } });
+        else if (connection.sourceHandle.startsWith('drink_other_')) {
+          const index = Number(connection.sourceHandle.slice('drink_other_'.length));
+          if (Number.isInteger(index) && gate.on_other_drinks[index]) updateDialogueNode(currentDialogue.id, sourceNode.id, { drink_gate: { ...gate, on_other_drinks: gate.on_other_drinks.map((outcome, i) => i === index ? { ...outcome, target: connection.target! } : outcome) } });
+        }
+        return;
+      }
       connectChoiceToTarget(
         currentDialogue.id,
         connection.source,
@@ -215,7 +238,7 @@ export const DialogueGraphEditor: React.FC = () => {
         connection.target
       );
     },
-    [currentDialogue, connectChoiceToTarget]
+    [currentDialogue, connectChoiceToTarget, updateDialogueNode]
   );
 
   // Extract **highlighted words** from current node text for 1-click term creation
@@ -624,6 +647,37 @@ export const DialogueGraphEditor: React.FC = () => {
                 />
               </div>
 
+              {!selectedNode.end && <div className="inspector-subsection">
+                <h4>Напиток перед продолжением диалога</h4>
+                <label className="checkbox-inline"><input type="checkbox" checked={!!selectedNode.drink_gate} onChange={(e) => {
+                  if (!e.target.checked) { updateDialogueNode(currentDialogue.id, selectedNode.id, { drink_gate: undefined, choices: [{ id: 'continue', text: 'Продолжить', target: currentDialogue.nodes.find((node) => node.id !== selectedNode.id)?.id || selectedNode.id, required_terms: [], required_conclusions: [], conditions: [] }] }); return; }
+                  const target = currentDialogue.nodes.find((node) => node.id !== selectedNode.id)?.id || selectedNode.id;
+                  const gate: DrinkGate = { expected_drink_id: project.drinks?.[0]?.id || '', resume_after: 'sipped', on_expected: target, on_other_drinks: [], on_fallback: target, fallback_consumed: true };
+                  updateDialogueNode(currentDialogue.id, selectedNode.id, { drink_gate: gate, choices: [] });
+                }} />Ожидать подачу в этом месте</label>
+                {selectedNode.drink_gate && (() => {
+                  const gate = selectedNode.drink_gate;
+                  const patch = (values: Partial<DrinkGate>) => updateDialogueNode(currentDialogue.id, selectedNode.id, { drink_gate: { ...gate, ...values } });
+                  const targetSelect = (value: string, setTarget: (id: string) => void) => <select value={value} onChange={(event) => setTarget(event.target.value)}>{currentDialogue.nodes.map((node) => <option key={node.id} value={node.id}>{node.title || node.id}</option>)}</select>;
+                  return <div className="subcard">
+                    {!project.drinks?.length && <p>Сначала создайте рецепт на вкладке «Напитки».</p>}
+                    <label>Ожидаемый напиток<select value={gate.expected_drink_id} onChange={(e) => patch({ expected_drink_id: e.target.value })}><option value="">Выберите</option>{(project.drinks || []).map((drink) => <option key={drink.id} value={drink.id}>{drink.title} ({drink.id})</option>)}</select></label>
+                    <label>Продолжить после<select value={gate.resume_after} onChange={(e) => patch({ resume_after: e.target.value as DrinkGate['resume_after'] })}><option value="served">Подачи</option><option value="sipped">Глотка</option></select></label>
+                    <label>Если подали ожидаемый напиток{targetSelect(gate.on_expected, (id) => patch({ on_expected: id }))}</label>
+                    <h4>Другие известные напитки</h4>
+                    {gate.on_other_drinks.map((outcome, index) => <div className="subcard" key={index}>
+                      <label>Напиток<select value={outcome.drink_id} onChange={(e) => patch({ on_other_drinks: gate.on_other_drinks.map((item, i) => i === index ? { ...item, drink_id: e.target.value } : item) })}>{(project.drinks || []).map((drink) => <option key={drink.id} value={drink.id}>{drink.title}</option>)}</select></label>
+                      <label>Реплика{targetSelect(outcome.target, (id) => patch({ on_other_drinks: gate.on_other_drinks.map((item, i) => i === index ? { ...item, target: id } : item) }))}</label>
+                      <label className="checkbox-inline"><input type="checkbox" checked={outcome.consumed} onChange={(e) => patch({ on_other_drinks: gate.on_other_drinks.map((item, i) => i === index ? { ...item, consumed: e.target.checked } : item) })} />Гость выпьет</label>
+                      <button className="btn btn-danger btn-sm" onClick={() => patch({ on_other_drinks: gate.on_other_drinks.filter((_, i) => i !== index) })}>Удалить вариант</button>
+                    </div>)}
+                    <button className="btn btn-secondary btn-sm" onClick={() => patch({ on_other_drinks: [...gate.on_other_drinks, { drink_id: (project.drinks || []).find((drink) => drink.id !== gate.expected_drink_id && !gate.on_other_drinks.some((item) => item.drink_id === drink.id))?.id || '', target: gate.on_fallback, consumed: true }] })}>+ Вариант другого напитка</button>
+                    <label>Любой остальной напиток{targetSelect(gate.on_fallback, (id) => patch({ on_fallback: id }))}</label>
+                    <label className="checkbox-inline"><input type="checkbox" checked={gate.fallback_consumed} onChange={(e) => patch({ fallback_consumed: e.target.checked })} />Гость выпьет остальной напиток</label>
+                  </div>;
+                })()}
+              </div>}
+
               {/* Quick Term Helper from **bold** words */}
               {extractedBoldWords.length > 0 && (
                 <div className="quick-terms-helper">
@@ -954,7 +1008,7 @@ export const DialogueGraphEditor: React.FC = () => {
               </div>
 
               {/* Player Choices & Conditions */}
-              {!selectedNode.end && (
+              {!selectedNode.end && !selectedNode.drink_gate && (
                 <div className="inspector-subsection">
                   <div className="subsection-header">
                     <h4>

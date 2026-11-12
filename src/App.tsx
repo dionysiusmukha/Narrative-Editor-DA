@@ -6,11 +6,13 @@ import { MemoryEditor } from './components/MemoryEditor';
 import { DialogueGraphEditor } from './components/DialogueGraphEditor';
 import { VariablesAndGlossaryEditor } from './components/VariablesAndGlossaryEditor';
 import { DialogueSimulator } from './components/DialogueSimulator';
+import { DrinksEditor } from './components/DrinksEditor';
 import { ExportAndSyncPanel } from './components/ExportAndSyncPanel';
 import {
   Users,
   GitFork,
   Database,
+  Wine,
   BookOpen,
   PlayCircle,
   FolderSync,
@@ -52,6 +54,7 @@ export const App: React.FC = () => {
       icon: <GitFork size={16} />,
       badge: project.dialogues.length,
     },
+    { id: 'drinks', label: 'Напитки', icon: <Wine size={16} />, badge: project.drinks?.length || 0 },
     {
       id: 'variables',
       label: 'Переменные',
@@ -133,6 +136,7 @@ export const App: React.FC = () => {
         {activeTab === 'characters' && <CharacterEditor />}
         {activeTab === 'events' && <MemoryEditor />}
         {activeTab === 'dialogues' && <DialogueGraphEditor />}
+        {activeTab === 'drinks' && <DrinksEditor />}
         {activeTab === 'variables' && (
           <VariablesAndGlossaryEditor mode="variables" />
         )}

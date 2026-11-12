@@ -49,6 +49,7 @@ export const DialogueSimulator: React.FC = () => {
   const [inspectedCharacter, setInspectedCharacter] = useState('');
   const [reaction, setReaction] = useState('neutral');
   const [serviceTrigger, setServiceTrigger] = useState('');
+  const [offeredDrink, setOfferedDrink] = useState('');
   const events = project.narrative_events || [];
   const characterId = inspectedCharacter || currentDialogue?.character_id || project.characters[0]?.id || '';
   const acquired = visibleRecords(events, history, characterId);
@@ -435,7 +436,20 @@ export const DialogueSimulator: React.FC = () => {
 
             {/* Reply Choices Area */}
             <div className="sim-replies-area">
-              {currentNode.end ? (
+              {currentNode.drink_gate ? <div className="subcard">
+                <strong>Разговор ждёт напиток</strong>
+                <p>Ожидается {project.drinks?.find((drink) => drink.id === currentNode.drink_gate?.expected_drink_id)?.title || currentNode.drink_gate.expected_drink_id}. Продолжение: после {currentNode.drink_gate.resume_after === 'sipped' ? 'глотка' : 'подачи'}.</p>
+                <label>Предложить напиток<select value={offeredDrink} onChange={(e) => setOfferedDrink(e.target.value)}><option value="">Выберите</option>{(project.drinks || []).map((drink) => <option key={drink.id} value={drink.id}>{drink.title}</option>)}<option value="__unknown__">Другой состав</option></select></label>
+                <button className="btn btn-primary" disabled={!offeredDrink} onClick={() => {
+                  const gate = currentNode.drink_gate!;
+                  const explicit = gate.on_other_drinks.find((item) => item.drink_id === offeredDrink);
+                  const expected = offeredDrink === gate.expected_drink_id;
+                  const consumed = expected || (explicit ? explicit.consumed : gate.fallback_consumed);
+                  const target = expected ? gate.on_expected : explicit?.target || gate.on_fallback;
+                  setEventLog((previous) => [`[Смена ${shift}] ${offeredDrink}: ${consumed ? (gate.resume_after === 'sipped' ? 'гость отпил' : 'подача принята') : 'гость отказался'} → ${target}`, ...previous]);
+                  applyNodeEntry(target, appliedEffects, knownTerms, variables);
+                }}>Проверить подачу и продолжить</button>
+              </div> : currentNode.end ? (
                 <div className="sim-terminal-box">
                   <CheckCircle2 size={18} />
                   <span>
