@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export const DialogueSimulator: React.FC = () => {
-  const { project, selectedDialogueId, setSelectedDialogueId } =
+  const { project, selectedDialogueId, setSelectedDialogueId, setActiveTab } =
     useNarrativeStore();
 
   const currentDialogue =
@@ -53,6 +53,8 @@ export const DialogueSimulator: React.FC = () => {
   const characterId = inspectedCharacter || currentDialogue?.character_id || project.characters[0]?.id || '';
   const acquired = visibleRecords(events, history, characterId);
   const initialVariables = () => Object.fromEntries(project.variables.map((variable) => [variable.id, variable.default_value]));
+  const termTitle = (id: string) => project.terms.find((term) => term.id === id)?.title || id;
+  const conditionTitle = (id: string) => project.variables.find((variable) => variable.id === id)?.title || id;
 
   const applyNodeEntry = (
     nodeId: string,
@@ -451,13 +453,10 @@ export const DialogueSimulator: React.FC = () => {
                     <kbd>E</kbd> вызывает <code>runner.finish()</code> и расходует 1
                     деление времени смены.
                   </span>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={startMeeting}
-                  >
-                    Пройти диалог ещё раз
-                  </button>
+                  <div className="sim-repeat-actions">
+                    <button type="button" className="btn btn-secondary" onClick={startMeeting}>Повторить с текущим состоянием</button>
+                    <button type="button" className="btn btn-primary" onClick={resetSimulation}>Новая проверка с чистого листа</button>
+                  </div>
                 </div>
               ) : (
                 evaluatedChoices.map(
@@ -468,51 +467,53 @@ export const DialogueSimulator: React.FC = () => {
                     missingConclusions,
                     failedConditions,
                   }) => (
-                    <button
-                      key={choice.id}
-                      type="button"
-                      disabled={!available}
-                      className={`sim-choice-btn ${
-                        available ? 'available' : 'locked'
-                      }`}
-                      onClick={() => {
-                        setEventLog((previous) => [`[Смена ${shift}] Ответ: ${choice.text}`, ...previous]);
-                        applyNodeEntry(
-                          choice.target,
-                          appliedEffects,
-                          knownTerms,
-                          variables
-                        );
-                      }}
-                    >
-                      <div className="sim-choice-main">
-                        <span className="sim-choice-caption">{choice.text}</span>
-                        <code>→ {choice.target}</code>
-                      </div>
+                    <div key={choice.id} className={`sim-choice-card ${available ? 'available' : 'locked'}`}>
+                      <button
+                        type="button"
+                        disabled={!available}
+                        className="sim-choice-btn"
+                        onClick={() => {
+                          setEventLog((previous) => [`[Смена ${shift}] Ответ: ${choice.text}`, ...previous]);
+                          applyNodeEntry(choice.target, appliedEffects, knownTerms, variables);
+                        }}
+                      >
+                        <span className="sim-choice-main">
+                          <span className="sim-choice-caption">{choice.text}</span>
+                          <small>→ {currentDialogue.nodes.find((node) => node.id === choice.target)?.title || 'Следующая реплика'}</small>
+                        </span>
+                      </button>
                       {!available && (
                         <div className="sim-lock-reasons">
-                          {missingTerms.length > 0 && (
-                            <span>
-                              <Lock size={11} /> Нужны термины:{' '}
-                              {missingTerms.join(', ')}
-                            </span>
-                          )}
-                          {missingConclusions.length > 0 && (
-                            <span>
-                              <Lock size={11} /> Нужен вывод дневника:{' '}
-                              {missingConclusions.join(', ')}
-                            </span>
-                          )}
-                          {failedConditions.map((fc, i) => (
-                            <span key={i}>
-                              <Lock size={11} /> Требуется: {fc.variable_id}{' '}
-                              {fc.op} {String(fc.value)} (сейчас:{' '}
-                              {String(variables[fc.variable_id])})
+                          {missingTerms.map((id) => (
+                            <span key={id}><Lock size={11} /> Нужно сведение: «{termTitle(id)}»</span>
+                          ))}
+                          {missingConclusions.map((id) => {
+                            const group = project.reasoning_groups.find((item) => item.options.some((option) => option.id === id));
+                            const conclusion = group?.options.find((option) => option.id === id);
+                            return (
+                              <div key={id} className="sim-lock-detail">
+                                <span><Lock size={11} /> Нужен вывод: «{conclusion?.text || conclusion?.title || id}»</span>
+                                {group && (
+                                  <details>
+                                    <summary>Где получить вывод</summary>
+                                    <p>Группа «{group.title}»: нужны минимум {group.minimum_terms} из {group.terms.length} сведений — {group.terms.map(termTitle).join(', ')}.</p>
+                                    <button type="button" className="btn btn-secondary btn-xs" onClick={() => {
+                                      setActiveTab('glossary');
+                                      requestAnimationFrame(() => document.getElementById(`reasoning-${group.id}`)?.scrollIntoView({ block: 'center' }));
+                                    }}>Открыть группу выводов</button>
+                                  </details>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {failedConditions.map((condition, index) => (
+                            <span key={index}>
+                              <Lock size={11} /> Требуется: {conditionTitle(condition.variable_id)} {condition.op} {String(condition.value)} (сейчас: {String(variables[condition.variable_id])})
                             </span>
                           ))}
                         </div>
                       )}
-                    </button>
+                    </div>
                   )
                 )
               )}
