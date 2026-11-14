@@ -44,6 +44,7 @@ interface NarrativeStoreState {
   browserSave: SaveStatus;
   projectSave: SaveStatus;
   godotExport: SaveStatus;
+  lastExportedProject: NarrativeProject | null;
 
   setActiveTab: (tab: EditorTab) => void;
   setSelectedCharacterId: (id: string) => void;
@@ -131,6 +132,7 @@ interface NarrativeStoreState {
 }
 
 const STORAGE_KEY = 'dark_alone_narrative_editor_v1';
+const EXPORT_BASELINE_KEY = 'dark_alone_last_godot_export_v1';
 
 function readLocalProject(): NarrativeProject | undefined {
   try {
@@ -142,6 +144,26 @@ function readLocalProject(): NarrativeProject | undefined {
     }
   } catch {
     // ignore storage errors
+  }
+}
+
+function readExportBaseline(): NarrativeProject | null {
+  try {
+    const raw = localStorage.getItem(EXPORT_BASELINE_KEY);
+    if (!raw) return null;
+    const project: unknown = JSON.parse(raw);
+    assertProjectShape(project);
+    return project;
+  } catch {
+    return null;
+  }
+}
+
+function persistExportBaseline(project: NarrativeProject): void {
+  try {
+    localStorage.setItem(EXPORT_BASELINE_KEY, JSON.stringify(project));
+  } catch {
+    // Export status remains authoritative even if the comparison snapshot cannot be stored.
   }
 }
 
@@ -166,6 +188,7 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
     browserSave: { state: readLocalProject() ? 'saved' : 'unknown' },
     projectSave: { state: 'unknown' },
     godotExport: { state: 'unknown' },
+    lastExportedProject: readExportBaseline(),
 
     setActiveTab: (tab) => set({ activeTab: tab }),
     setSelectedCharacterId: (id) => set({ selectedCharacterId: id }),
@@ -779,10 +802,12 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
         });
         const exportData = (await exportRes.json()) as { matches?: boolean; paths?: string[]; error?: string };
         if (get().project === current && get().godotExport.state !== 'saving') {
+          if (exportRes.ok && exportData.matches) persistExportBaseline(current);
           set({
             godotExport: exportRes.ok
               ? { state: exportData.matches ? 'saved' : 'outdated', paths: exportData.paths }
               : { state: 'unknown', message: exportData.error || 'Не удалось проверить файлы игры' },
+            lastExportedProject: exportRes.ok && exportData.matches ? current : get().lastExportedProject,
           });
         }
       } catch (error) {
@@ -856,7 +881,9 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
         const current = get().project;
         const isCurrent = current === project;
         const now = new Date().toLocaleTimeString();
+        persistExportBaseline(project);
         set({
+          lastExportedProject: project,
           projectSave: isCurrent
             ? { state: 'saved', lastSavedAt: now }
             : { state: 'outdated', message: 'После выгрузки появились новые правки', lastSavedAt: now },
