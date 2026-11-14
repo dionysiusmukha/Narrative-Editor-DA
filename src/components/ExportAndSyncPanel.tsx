@@ -272,7 +272,7 @@ export const ExportAndSyncPanel: React.FC = () => {
             <AlertTriangle size={16} />
             <div>
               <strong>Сюжетные замечания ({editorialWarnings.length}) — экспорт не блокируют</strong>
-              <p>Файлы технически пригодны для выгрузки; эти связи стоит проверить по смыслу.</p>
+              <p>{technicalErrors.length ? 'Сначала исправьте ошибки структуры; эти связи также стоит проверить по смыслу.' : 'Файлы технически пригодны для выгрузки; эти связи стоит проверить по смыслу.'}</p>
               <ul>
                 {editorialWarnings.map((warning, index) => (
                   <li key={index}>{warning.message}{warning.dialogueId && <button className="btn btn-secondary btn-xs" onClick={() => { setSelectedDialogueId(warning.dialogueId!); setActiveTab('dialogues'); }}>Открыть диалог</button>}</li>
