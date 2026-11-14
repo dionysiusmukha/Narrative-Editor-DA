@@ -55,7 +55,7 @@ function godotSyncPlugin(): Plugin {
             const payload = JSON.parse(raw) as { godotPath: string; project: unknown };
             assertProjectShape(payload.project);
             const files = compileGodotFiles(payload.project);
-            if (files.some((file) => !/^content\\/[a-z]+\\/[a-z][a-z0-9_]*\\.json$/.test(file.relativePath))) {
+            if (files.some((file) => !/^content\/[a-z]+\/[a-z][a-z0-9_]*\.json$/.test(file.relativePath))) {
               return sendJson(400, { matches: false, error: 'Некорректный ID в пути экспорта' });
             }
             const baseDir = payload.godotPath || 'c:\\Dev\\Dark-Alone';
