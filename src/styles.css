@@ -1562,3 +1562,9 @@ textarea:focus {
   outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
+
+.choice-summary em {
+  color: var(--accent);
+  font-size: 11px;
+  font-style: normal;
+}
