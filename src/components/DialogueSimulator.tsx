@@ -175,7 +175,7 @@ export const DialogueSimulator: React.FC = () => {
     setInspectedCharacter(currentDialogue?.character_id || '');
     startMeeting();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDialogue?.id]);
+  }, [currentDialogue?.id, currentDialogue?.character_id]);
 
   const currentNode = currentDialogue?.nodes.find(
     (n) => n.id === currentNodeId
