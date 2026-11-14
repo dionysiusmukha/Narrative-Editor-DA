@@ -44,13 +44,14 @@ code {
 }
 
 .app-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px 16px;
   padding: 8px 16px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
-  height: 54px;
   flex-shrink: 0;
 }
 
@@ -85,12 +86,12 @@ code {
 }
 
 .app-nav {
+  grid-column: 1 / -1;
+  grid-row: 2;
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   min-width: 0;
-  overflow-x: auto;
-  flex: 1;
-  margin: 0 12px;
 }
 
 .app-nav .nav-tab,
@@ -134,9 +135,28 @@ code {
 }
 
 .header-actions {
+  grid-column: 2;
+  grid-row: 1;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+@media (max-width: 1050px) {
+  .app-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .header-actions {
+    grid-column: 1;
+    grid-row: 2;
+    justify-content: flex-start;
+  }
+  .app-nav {
+    grid-row: 3;
+  }
 }
 
 .sync-pill {
