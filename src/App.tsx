@@ -14,8 +14,6 @@ import {
   BookOpen,
   PlayCircle,
   FolderSync,
-  CheckCircle2,
-  AlertCircle,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -23,7 +21,9 @@ export const App: React.FC = () => {
     project,
     activeTab,
     setActiveTab,
-    syncStatus,
+    browserSave,
+    projectSave,
+    godotExport,
     loadProjectFromServer,
     syncWithGodot,
   } = useNarrativeStore();
@@ -106,23 +106,31 @@ export const App: React.FC = () => {
         </nav>
 
         <div className="header-actions">
-          {syncStatus.state === 'synced' && (
-            <span className="sync-pill synced" title={syncStatus.message}>
-              <CheckCircle2 size={13} /> Синхронизировано ({syncStatus.lastSyncAt})
+          {([
+            ['Браузер', browserSave],
+            ['Проект', projectSave],
+            ['Godot', godotExport],
+          ] as const).map(([label, status]) => (
+            <span
+              key={label}
+              className={`sync-pill ${status.state === 'saved' ? 'synced' : status.state === 'error' ? 'error' : ''}`}
+              title={status.message || (status.lastSavedAt ? `Последнее сохранение: ${status.lastSavedAt}` : '')}
+            >
+              {label}: {status.state === 'saved' ? 'сохранено'
+                : status.state === 'saving' ? 'сохранение…'
+                : status.state === 'outdated' ? 'есть изменения'
+                : status.state === 'error' ? 'ошибка'
+                : 'не проверено'}
             </span>
-          )}
-          {syncStatus.state === 'error' && (
-            <span className="sync-pill error" title={syncStatus.message}>
-              <AlertCircle size={13} /> {syncStatus.message}
-            </span>
-          )}
+          ))}
           <button
             type="button"
             className="btn btn-primary"
             onClick={() => syncWithGodot()}
-            title="Записать JSON-файлы в c:\Dev\Dark-Alone\content\"
+            disabled={godotExport.state === 'saving'}
+            title="Записать JSON-файлы в выбранную папку Godot"
           >
-            <FolderSync size={15} /> Синхронизировать с Godot
+            <FolderSync size={15} /> Выгрузить в Godot
           </button>
         </div>
       </header>
