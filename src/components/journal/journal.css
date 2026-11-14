@@ -1,12 +1,33 @@
 .journal-editor {
   height: 100%;
-  min-height: 600px;
+  min-height: 0;
   display: grid;
-  grid-template-columns: 230px minmax(300px, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr;
   background: #1c222a;
   color: #e6e0d4;
   overflow: hidden;
+}
+.journal-editor.panel-library {
+  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+}
+.journal-editor.panel-properties {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+}
+.journal-editor.panel-library .journal-library {
+  grid-column: 1;
+}
+.journal-editor.panel-library .journal-workspace {
+  grid-column: 2;
+}
+.journal-editor.panel-properties .journal-workspace {
+  grid-column: 1;
+}
+.journal-editor.panel-properties .journal-properties {
+  grid-column: 2;
+}
+.journal-editor.panel-none .journal-workspace {
+  grid-column: 1;
 }
 .journal-toolbar {
   grid-column: 1/-1;
@@ -24,6 +45,8 @@
   background: #252b33;
 }
 .journal-library button {
+  overflow-wrap: anywhere;
+  white-space: normal;
   display: block;
   width: 100%;
   text-align: left;
@@ -92,6 +115,7 @@
   color: #e5c27c;
 }
 .journal-workspace {
+  min-width: 0;
   overflow: auto;
   padding: 40px;
   display: flex;
@@ -120,10 +144,45 @@
   width: 70px !important;
 }
 @media (max-width: 1000px) {
-  .journal-editor {
-    grid-template-columns: 180px minmax(240px, 1fr) 240px;
+  .journal-editor.panel-library {
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  }
+  .journal-editor.panel-properties {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 280px);
   }
   .journal-workspace {
     padding: 20px;
   }
+}
+@media (max-width: 700px) {
+  .journal-editor.panel-library,
+  .journal-editor.panel-properties {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+  .journal-editor.panel-library .journal-library,
+  .journal-editor.panel-properties .journal-properties,
+  .journal-editor.panel-library .journal-workspace,
+  .journal-editor.panel-properties .journal-workspace {
+    grid-column: 1;
+  }
+  .journal-editor.panel-library .journal-library,
+  .journal-editor.panel-properties .journal-properties {
+    grid-row: 2;
+    max-height: 40vh;
+  }
+  .journal-editor.panel-library .journal-workspace,
+  .journal-editor.panel-properties .journal-workspace {
+    grid-row: 3;
+  }
+}
+
+.journal-page-picker {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  min-width: min(260px, 100%);
+}
+.journal-page-picker select {
+  min-width: 0;
 }

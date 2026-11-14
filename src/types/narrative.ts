@@ -1,11 +1,11 @@
 export type NpcEmotion = 'neutral' | 'interested' | 'thoughtful' | 'tense' | 'disagree';
 
 export const NPC_EMOTIONS: Array<{ id: NpcEmotion; label: string; color: string }> = [
-  { id: 'neutral', label: 'Спокойствие (neutral)', color: '#94a3b8' },
-  { id: 'interested', label: 'Заинтересованность (interested)', color: '#38bdf8' },
-  { id: 'thoughtful', label: 'Задумчивость (thoughtful)', color: '#a78bfa' },
-  { id: 'tense', label: 'Напряжение (tense)', color: '#fbbf24' },
-  { id: 'disagree', label: 'Несогласие / Отказ (disagree)', color: '#f87171' },
+  { id: 'neutral', label: 'Спокойствие', color: '#94a3b8' },
+  { id: 'interested', label: 'Заинтересованность', color: '#38bdf8' },
+  { id: 'thoughtful', label: 'Задумчивость', color: '#a78bfa' },
+  { id: 'tense', label: 'Напряжение', color: '#fbbf24' },
+  { id: 'disagree', label: 'Несогласие / отказ', color: '#f87171' },
 ];
 
 export const DRINK_INGREDIENTS: Array<{ id: string; label: string }> = [

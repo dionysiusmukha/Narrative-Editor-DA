@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { JournalCanvas } from "./JournalCanvas";
 import { JournalInspector } from "./JournalInspector";
 import { useJournalEditorModel } from "./useJournalEditorModel";
 import "./journal.css";
 export function JournalEditor() {
   const model = useJournalEditorModel();
+  const [sidePanel, setSidePanel] = useState<'library' | 'properties' | null>(null);
   const {
     project,
     saveProjectToServer,
@@ -42,9 +44,12 @@ export function JournalEditor() {
     issues,
   } = model;
   return (
-    <div className="journal-editor">
+    <div className={`journal-editor ${sidePanel ? `panel-${sidePanel}` : "panel-none"}`}>
       <div className="journal-toolbar">
         <strong>Компоновка страниц</strong>
+        <label className="journal-page-picker">Лист <select aria-label="Лист дневника" value={page?.id || ""} onChange={(e) => { setPageId(e.target.value); select(""); }}>{[...l.pages].sort((a, b) => a.order - b.order).map((p) => <option key={p.id} value={p.id}>{p.section === "words" ? "Словарь" : "Заметки"} · {p.order + 1} · {p.title}</option>)}</select></label>
+        <button type="button" className={sidePanel === "library" ? "chosen" : ""} aria-pressed={sidePanel === "library"} onClick={() => setSidePanel(sidePanel === "library" ? null : "library")}>Библиотека</button>
+        <button type="button" className={sidePanel === "properties" ? "chosen" : ""} aria-pressed={sidePanel === "properties"} onClick={() => setSidePanel(sidePanel === "properties" ? null : "properties")}>Свойства и проверка</button>
         <button onClick={addPage}>+ Страница</button>
         <button onClick={() => saveProjectToServer()}>Сохранить проект</button>
         <button
@@ -96,7 +101,7 @@ export function JournalEditor() {
           />
         </label>
       </div>
-      <aside className="journal-library">
+      {sidePanel === "library" && <aside className="journal-library">
         <h3>Страницы</h3>
         {[...l.pages]
           .sort((a, b) => a.order - b.order)
@@ -151,7 +156,7 @@ export function JournalEditor() {
           Перетащите запись на лист. Клик добавляет её в начало листа.
           Свидетельства версии 1 представлены цитатами получаемых терминов.
         </p>
-      </aside>
+      </aside>}
       <main className="journal-workspace">
         {page ? (
           <JournalCanvas
@@ -171,7 +176,7 @@ export function JournalEditor() {
           <p>Создайте первую страницу или откройте TEST-пример.</p>
         )}
       </main>
-      <JournalInspector model={model} />
+      {sidePanel === "properties" && <JournalInspector model={model} />}
     </div>
   );
 }

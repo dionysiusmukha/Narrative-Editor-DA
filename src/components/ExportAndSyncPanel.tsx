@@ -66,7 +66,7 @@ export const ExportAndSyncPanel: React.FC = () => {
   };
 
   return (
-    <div className="page-container">
+    <div className="page-container export-page">
       <div className="page-header">
         <div>
           <h2>
@@ -131,6 +131,27 @@ export const ExportAndSyncPanel: React.FC = () => {
 
       {/* Sync Controls Card */}
       <div className="card sync-banner-card">
+        <div className="sync-status-line">
+          <div>Черновик в браузере: <strong>{browserSave.state === 'saved' ? 'сохранён'
+            : browserSave.state === 'error' ? 'ошибка сохранения' : 'не проверен'}</strong>
+            {browserSave.message && <span> — {browserSave.message}</span>}
+          </div>
+          <div>Проект редактора: <strong>{projectSave.state === 'saved' ? 'текущая версия сохранена'
+            : projectSave.state === 'saving' ? 'сохраняется…'
+            : projectSave.state === 'outdated' ? 'есть несохранённые изменения'
+            : projectSave.state === 'error' ? 'ошибка сохранения' : 'не проверен'}</strong>
+            {projectSave.lastSavedAt && <span> ({projectSave.lastSavedAt})</span>}
+            {projectSave.message && <span> — {projectSave.message}</span>}
+          </div>
+          <div>Файлы Godot: <strong>{godotExport.state === 'saved' ? 'текущая версия выгружена'
+            : godotExport.state === 'saving' ? 'выгружается…'
+            : godotExport.state === 'outdated' ? 'текущие изменения не выгружены'
+            : godotExport.state === 'error' ? 'ошибка выгрузки' : 'не проверены'}</strong>
+            {godotExport.lastSavedAt && <span> ({godotExport.lastSavedAt})</span>}
+            {godotExport.message && <span> — {godotExport.message}</span>}
+          </div>
+          <small>Выгрузка подтверждает запись файлов, а не их загрузку запущенной игрой.</small>
+        </div>
         <div className="sync-row">
           <div className="field-row" style={{ flex: 1 }}>
             <label>Путь к проекту Dark Alone или папке для выгрузки</label>
@@ -190,27 +211,7 @@ export const ExportAndSyncPanel: React.FC = () => {
           </div>
         )}
 
-        <div className="sync-status-line">
-          <div>Черновик в браузере: <strong>{browserSave.state === 'saved' ? 'сохранён'
-            : browserSave.state === 'error' ? 'ошибка сохранения' : 'не проверен'}</strong>
-            {browserSave.message && <span> — {browserSave.message}</span>}
-          </div>
-          <div>Проект редактора: <strong>{projectSave.state === 'saved' ? 'текущая версия сохранена'
-            : projectSave.state === 'saving' ? 'сохраняется…'
-            : projectSave.state === 'outdated' ? 'есть несохранённые изменения'
-            : projectSave.state === 'error' ? 'ошибка сохранения' : 'не проверен'}</strong>
-            {projectSave.lastSavedAt && <span> ({projectSave.lastSavedAt})</span>}
-            {projectSave.message && <span> — {projectSave.message}</span>}
-          </div>
-          <div>Файлы Godot: <strong>{godotExport.state === 'saved' ? 'текущая версия выгружена'
-            : godotExport.state === 'saving' ? 'выгружается…'
-            : godotExport.state === 'outdated' ? 'текущие изменения не выгружены'
-            : godotExport.state === 'error' ? 'ошибка выгрузки' : 'не проверены'}</strong>
-            {godotExport.lastSavedAt && <span> ({godotExport.lastSavedAt})</span>}
-            {godotExport.message && <span> — {godotExport.message}</span>}
-          </div>
-          <small>Выгрузка подтверждает запись файлов, а не их загрузку запущенной игрой.</small>
-        </div>
+
 
         {(godotExport.paths?.length || 0) > 0 && (
           <div className="written-files-box">
