@@ -50,6 +50,23 @@ function godotSyncPlugin(): Plugin {
             return sendJson(200, { ok: true, path: projectFile });
           }
 
+          if (req.method === 'POST' && req.url === '/api/check-godot-export') {
+            const raw = await readBody();
+            const payload = JSON.parse(raw) as { godotPath: string; project: unknown };
+            assertProjectShape(payload.project);
+            const files = compileGodotFiles(payload.project);
+            if (files.some((file) => !/^content\/[a-z]+\/[a-z][a-z0-9_]*\.json$/.test(file.relativePath))) {
+              return sendJson(400, { matches: false, error: 'Некорректный ID в пути экспорта' });
+            }
+            const baseDir = payload.godotPath || 'c:\\Dev\\Dark-Alone';
+            if (!fs.existsSync(baseDir)) return sendJson(200, { matches: false, paths: [] });
+            const paths = files.map((file) => path.resolve(baseDir, file.relativePath));
+            const matches = files.length > 0 && files.every(
+              (file, index) => fs.existsSync(paths[index]) && fs.readFileSync(paths[index], 'utf-8') === file.content
+            );
+            return sendJson(200, { matches, paths: matches ? paths : [] });
+          }
+
           if (req.method === 'POST' && req.url === '/api/sync-godot') {
             const raw = await readBody();
             const payload = JSON.parse(raw) as {

@@ -27,10 +27,11 @@ export type EditorTab =
   | 'events'
   | 'export';
 
-interface SyncStatus {
-  state: 'idle' | 'saving' | 'synced' | 'error';
+interface SaveStatus {
+  state: 'unknown' | 'saving' | 'saved' | 'outdated' | 'error';
   message?: string;
-  lastSyncAt?: string;
+  lastSavedAt?: string;
+  paths?: string[];
 }
 
 interface NarrativeStoreState {
@@ -40,7 +41,9 @@ interface NarrativeStoreState {
   selectedCharacterId: string;
   selectedDialogueId: string;
   selectedNodeId: string | null;
-  syncStatus: SyncStatus;
+  browserSave: SaveStatus;
+  projectSave: SaveStatus;
+  godotExport: SaveStatus;
 
   setActiveTab: (tab: EditorTab) => void;
   setSelectedCharacterId: (id: string) => void;
@@ -142,11 +145,12 @@ function readLocalProject(): NarrativeProject | undefined {
   }
 }
 
-function persistLocal(project: NarrativeProject) {
+function persistLocal(project: NarrativeProject): string | undefined {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(project));
-  } catch {
-    // ignore
+    return undefined;
+  } catch (error) {
+    return error instanceof Error ? error.message : 'Не удалось сохранить черновик в браузере';
   }
 }
 
@@ -159,7 +163,9 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
     selectedCharacterId: initial.characters[0]?.id || 'arkadiy',
     selectedDialogueId: initial.dialogues[0]?.id || 'arkadiy_intro',
     selectedNodeId: initial.dialogues[0]?.start_node || 'opening',
-    syncStatus: { state: 'idle' },
+    browserSave: { state: readLocalProject() ? 'saved' : 'unknown' },
+    projectSave: { state: 'unknown' },
+    godotExport: { state: 'unknown' },
 
     setActiveTab: (tab) => set({ activeTab: tab }),
     setSelectedCharacterId: (id) => set({ selectedCharacterId: id }),
@@ -174,7 +180,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
     setGodotProjectPath: (godot_project_path) =>
       set((state) => {
         const next = { ...state.project, godot_project_path };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -184,7 +189,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
           ...state.project,
           characters: [...state.project.characters, char],
         };
-        persistLocal(next);
         return { project: next, selectedCharacterId: char.id };
       }),
 
@@ -196,7 +200,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             c.id === id ? { ...c, ...patch } : c
           ),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -204,7 +207,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
       set((state) => {
         const filtered = state.project.characters.filter((c) => c.id !== id);
         const next = { ...state.project, characters: filtered };
-        persistLocal(next);
         return {
           project: next,
           selectedCharacterId: filtered[0]?.id || '',
@@ -224,7 +226,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             return { ...c, relationships };
           }),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -241,7 +242,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
               : c
           ),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -251,7 +251,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
           ...state.project,
           variables: [...state.project.variables, variable],
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -263,7 +262,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             v.id === id ? { ...v, ...patch } : v
           ),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -273,7 +271,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
           ...state.project,
           variables: state.project.variables.filter((v) => v.id !== id),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -283,7 +280,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
           ...state.project,
           terms: [...state.project.terms, term],
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -293,7 +289,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
           ...state.project,
           terms: state.project.terms.map((t) => (t.id === id ? { ...t, ...patch } : t)),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -303,7 +298,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
           ...state.project,
           terms: state.project.terms.filter((t) => t.id !== id),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -313,7 +307,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
           ...state.project,
           reasoning_groups: [...state.project.reasoning_groups, group],
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -325,7 +318,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             g.id === id ? { ...g, ...patch } : g
           ),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -335,7 +327,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
           ...state.project,
           reasoning_groups: state.project.reasoning_groups.filter((g) => g.id !== id),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -345,7 +336,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
           ...state.project,
           dialogues: [...state.project.dialogues, dialogue],
         };
-        persistLocal(next);
         return {
           project: next,
           selectedDialogueId: dialogue.id,
@@ -361,7 +351,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             d.id === id ? { ...d, ...patch } : d
           ),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -369,7 +358,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
       set((state) => {
         const dialogues = state.project.dialogues.filter((d) => d.id !== id);
         const next = { ...state.project, dialogues };
-        persistLocal(next);
         return {
           project: next,
           selectedDialogueId: dialogues[0]?.id || '',
@@ -422,7 +410,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             d.id === dialogueId ? { ...d, nodes: [...d.nodes, newNode] } : d
           ),
         };
-        persistLocal(next);
         return { project: next, selectedNodeId: newId };
       });
       return newId;
@@ -460,7 +447,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             };
           }),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -487,7 +473,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             };
           }),
         };
-        persistLocal(next);
         return {
           project: next,
           selectedNodeId: state.selectedNodeId === oldId ? newId : state.selectedNodeId,
@@ -509,7 +494,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
               : d
           ),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -529,7 +513,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             };
           }),
         };
-        persistLocal(next);
         return {
           project: next,
           selectedNodeId:
@@ -572,7 +555,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             };
           }),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -596,7 +578,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             };
           }),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -618,7 +599,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             };
           }),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -642,7 +622,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             };
           }),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -679,7 +658,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             };
           }),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -703,7 +681,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             };
           }),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -725,7 +702,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             };
           }),
         };
-        persistLocal(next);
         return { project: next };
       }),
 
@@ -766,39 +742,66 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
         });
 
         const next = { ...state.project, terms, dialogues };
-        persistLocal(next);
         return { project: next };
       }),
 
     loadProjectFromServer: async () => {
-      if (readLocalProject()) return;
+      const localProject = readLocalProject();
+      const startingProject = get().project;
       try {
         const res = await fetch('/api/project');
-        if (!res.ok) return;
-        const data = (await res.json()) as {
-          exists: boolean;
-          project?: NarrativeProject;
-        };
+        if (!res.ok) throw new Error('Не удалось проверить проект редактора');
+        const data = (await res.json()) as { exists: boolean; project?: NarrativeProject };
         if (data.exists && data.project) {
-          if (readLocalProject()) return;
           assertProjectShape(data.project);
-          persistLocal(data.project);
+          if (!localProject && get().project === startingProject) {
+            set({
+              project: data.project,
+              selectedCharacterId: data.project.characters[0]?.id || 'arkadiy',
+              selectedDialogueId: data.project.dialogues[0]?.id || 'arkadiy_intro',
+              selectedNodeId: data.project.dialogues[0]?.start_node || null,
+            });
+          }
+        }
+        const current = get().project;
+        if (get().projectSave.state !== 'saving') {
           set({
-            project: data.project,
-            selectedCharacterId: data.project.characters[0]?.id || 'arkadiy',
-            selectedDialogueId: data.project.dialogues[0]?.id || 'arkadiy_intro',
-            selectedNodeId: data.project.dialogues[0]?.start_node || null,
+            projectSave: {
+              state: data.exists && data.project && JSON.stringify(data.project) === JSON.stringify(current)
+                ? 'saved' : 'outdated',
+            },
+          });
+        }
+        const exportRes = await fetch('/api/check-godot-export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ godotPath: current.godot_project_path, project: current }),
+        });
+        const exportData = (await exportRes.json()) as { matches?: boolean; paths?: string[]; error?: string };
+        if (get().project === current && get().godotExport.state !== 'saving') {
+          set({
+            godotExport: exportRes.ok
+              ? { state: exportData.matches ? 'saved' : 'outdated', paths: exportData.paths }
+              : { state: 'unknown', message: exportData.error || 'Не удалось проверить файлы игры' },
           });
         }
       } catch (error) {
-        if (error instanceof Error && !(error instanceof TypeError)) set({ syncStatus: { state: 'error', message: error.message } });
+        set((state) => ({
+          projectSave: state.projectSave.state === 'unknown'
+            ? { state: 'unknown', message: error instanceof Error ? error.message : 'Сервер недоступен' }
+            : state.projectSave,
+          godotExport: state.godotExport.state === 'unknown'
+            ? { state: 'unknown', message: 'Не удалось проверить файлы игры' }
+            : state.godotExport,
+        }));
       }
     },
 
     saveProjectToServer: async () => {
       const project = get().project;
-      persistLocal(project);
-      set({ syncStatus: { state: 'saving', message: 'Сохранение проекта...' } });
+      set((state) => ({
+        projectSave: { state: 'saving', lastSavedAt: state.projectSave.lastSavedAt },
+      }));
       try {
         const res = await fetch('/api/save-project', {
           method: 'POST',
@@ -806,29 +809,20 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
           body: JSON.stringify(project),
         });
         const data = (await res.json()) as { ok: boolean; error?: string };
-        if (data.ok) {
-          set({
-            syncStatus: {
-              state: 'synced',
-              message: 'Проект сохранён в project.narrative.json',
-              lastSyncAt: new Date().toLocaleTimeString(),
-            },
-          });
-        } else {
-          set({
-            syncStatus: {
-              state: 'error',
-              message: data.error || 'Ошибка сохранения',
-            },
-          });
-        }
-      } catch (e: unknown) {
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Ошибка сохранения проекта');
         set({
-          syncStatus: {
-            state: 'error',
-            message: e instanceof Error ? e.message : 'Сервер недоступен',
-          },
+          projectSave: get().project === project
+            ? { state: 'saved', lastSavedAt: new Date().toLocaleTimeString() }
+            : { state: 'outdated', message: 'После сохранения появились новые правки', lastSavedAt: new Date().toLocaleTimeString() },
         });
+      } catch (error) {
+        set((state) => ({
+          projectSave: {
+            state: 'error',
+            message: error instanceof Error ? error.message : 'Сервер недоступен',
+            lastSavedAt: state.projectSave.lastSavedAt,
+          },
+        }));
       }
     },
 
@@ -837,58 +831,51 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
       const issue = validateProject(project).find((item) => item.level === 'error');
       if (issue) {
         const error = `${issue.path}: ${issue.message}`;
-        set({ syncStatus: { state: 'error', message: error } });
+        set({ godotExport: { state: 'error', message: error } });
         return { ok: false, error };
       }
-      persistLocal(project);
-      set({
-        syncStatus: {
+      set((state) => ({
+        godotExport: {
           state: 'saving',
-          message: 'Экспорт JSON в Dark Alone...',
+          lastSavedAt: state.godotExport.lastSavedAt,
+          paths: state.godotExport.paths,
         },
-      });
-
+      }));
       try {
         const res = await fetch('/api/sync-godot', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            godotPath: project.godot_project_path,
-            project,
-          }),
+          body: JSON.stringify({ godotPath: project.godot_project_path, project }),
         });
         const data = (await res.json()) as {
           ok: boolean;
           writtenFiles?: string[];
           error?: string;
         };
-        if (data.ok) {
-          set({
-            syncStatus: {
-              state: 'synced',
-              message: `Синхронизировано с Godot (${data.writtenFiles?.length || 0} файлов)`,
-              lastSyncAt: new Date().toLocaleTimeString(),
-            },
-          });
-          return { ok: true, files: data.writtenFiles };
-        } else {
-          set({
-            syncStatus: {
-              state: 'error',
-              message: data.error || 'Ошибка синхронизации с Godot',
-            },
-          });
-          return { ok: false, error: data.error };
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Ошибка выгрузки в Godot');
+        const current = get().project;
+        const isCurrent = current === project;
+        const now = new Date().toLocaleTimeString();
         set({
-          syncStatus: {
-            state: 'error',
-            message: msg,
-          },
+          projectSave: isCurrent
+            ? { state: 'saved', lastSavedAt: now }
+            : { state: 'outdated', message: 'После выгрузки появились новые правки', lastSavedAt: now },
+          godotExport: isCurrent
+            ? { state: 'saved', lastSavedAt: now, paths: data.writtenFiles }
+            : { state: 'outdated', message: 'После выгрузки появились новые правки', lastSavedAt: now, paths: data.writtenFiles },
         });
-        return { ok: false, error: msg };
+        return { ok: true, files: data.writtenFiles };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        set((state) => ({
+          godotExport: {
+            state: 'error',
+            message,
+            lastSavedAt: state.godotExport.lastSavedAt,
+            paths: state.godotExport.paths,
+          },
+        }));
+        return { ok: false, error: message };
       }
     },
 
@@ -896,7 +883,6 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
       assertProjectShape(project);
       const issue = validateProject(project).find((item) => item.level === 'error');
       if (issue) throw new Error(`${issue.path}: ${issue.message}`);
-      persistLocal(project);
       set({
         project,
         selectedCharacterId: project.characters[0]?.id || '',
@@ -907,23 +893,29 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
 
     updateNarrative: (patch) => set((state) => {
       const project = { ...state.project, ...patch };
-      persistLocal(project);
       return { project };
     }),
 
     resetToArkadiyDefault: () => {
       const fresh = structuredClone(DEFAULT_ARKADIY_PROJECT);
-      persistLocal(fresh);
       set({
         project: fresh,
         selectedCharacterId: 'arkadiy',
         selectedDialogueId: 'arkadiy_intro',
         selectedNodeId: 'opening',
-        syncStatus: {
-          state: 'idle',
-          message: 'Восстановлен эталонный сценарий Аркадия',
-        },
       });
     },
   };
+});
+
+useNarrativeStore.subscribe((state, previous) => {
+  if (state.project === previous.project) return;
+  const error = persistLocal(state.project);
+  useNarrativeStore.setState({
+    browserSave: error
+      ? { state: 'error', message: error }
+      : { state: 'saved', lastSavedAt: new Date().toLocaleTimeString() },
+    projectSave: { state: 'outdated', lastSavedAt: state.projectSave.lastSavedAt },
+    godotExport: { state: 'outdated', lastSavedAt: state.godotExport.lastSavedAt, paths: state.godotExport.paths },
+  });
 });

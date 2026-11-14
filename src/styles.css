@@ -87,6 +87,16 @@ code {
 .app-nav {
   display: flex;
   gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  flex: 1;
+  margin: 0 12px;
+}
+
+.app-nav .nav-tab,
+.brand-group,
+.header-actions {
+  flex-shrink: 0;
 }
 
 .nav-tab {
@@ -146,6 +156,11 @@ code {
 .sync-pill.error {
   background: rgba(239, 68, 68, 0.16);
   color: #f87171;
+}
+
+.sync-pill.outdated {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
 }
 
 .app-main {
