@@ -1333,6 +1333,11 @@ textarea:focus {
   font-size: 11px;
 }
 .rf-node-title {
+  display: block;
+  max-width: 230px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
   line-height: 1.35;
 }
