@@ -1180,7 +1180,7 @@ export const DialogueGraphEditor: React.FC = () => {
                                 {!conditionOptions.some((option) => option.id === cond.variable_id) && <option value={cond.variable_id}>Недоступно: {cond.variable_id}</option>}
                                 {conditionOptions.map((v) => (
                                   <option key={v.id} value={v.id}>
-                                    {v.id} · {v.label}
+                                    {v.label || v.id}
                                   </option>
                                 ))}
                               </select>
@@ -1205,10 +1205,10 @@ export const DialogueGraphEditor: React.FC = () => {
                                   );
                                 }}
                               >
-                                <option value="==">==</option>
-                                <option value="!=">!=</option>
+                                <option value="==">равно</option>
+                                <option value="!=">не равно</option>
                                 {option?.type !== 'boolean' &&
-                                  ['>=', '>', '<=', '<'].map((op) => <option key={op} value={op}>{op}</option>)}
+                                  ['>=', '>', '<=', '<'].map((op) => <option key={op} value={op}>{op === '>=' ? 'не меньше' : op === '>' ? 'больше' : op === '<=' ? 'не больше' : 'меньше'}</option>)}
                               </select>
                               {option?.type === 'boolean' ? (
                                 <select aria-label="Значение условия" value={String(cond.value)} onChange={(event) => changeValue(event.target.value)}>
