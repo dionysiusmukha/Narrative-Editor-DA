@@ -108,6 +108,33 @@ export function validateProject(project: NarrativeProject): ValidationIssue[] {
   return [...issues, ...validateMemoryProject(project), ...validateStartRules(project)];
 }
 
+/**
+ * Editorial checks report plausible story mistakes without blocking JSON export.
+ * Technical validity remains the responsibility of validateProject.
+ */
+export function reviewNarrativeConsistency(project: NarrativeProject): ValidationIssue[] {
+  const warnings: ValidationIssue[] = [];
+  for (const dialogue of project.dialogues) {
+    if (!dialogue.nodes.length) continue;
+    const speakers = dialogue.nodes.map((node) =>
+      node.character_id ||
+      project.characters.find((character) => character.name.trim().toLowerCase() === node.speaker.trim().toLowerCase())?.id
+    );
+    const speakerId = speakers[0];
+    if (speakerId && speakerId !== dialogue.character_id && speakers.every((id) => id === speakerId)) {
+      const speakerName = project.characters.find((character) => character.id === speakerId)?.name || speakerId;
+      const ownerName = project.characters.find((character) => character.id === dialogue.character_id)?.name || dialogue.character_id;
+      warnings.push({
+        level: 'warning',
+        dialogueId: dialogue.id,
+        path: `dialogue.${dialogue.id}.character_id`,
+        message: `Все реплики произносит ${speakerName}, но персонаж диалога — ${ownerName}. Проверьте привязку: она влияет на условия и память персонажа.`,
+      });
+    }
+  }
+  return warnings;
+}
+
 export function validateDialogue(
   dialogue: DialogueDocument,
   termIds: Set<string>,
