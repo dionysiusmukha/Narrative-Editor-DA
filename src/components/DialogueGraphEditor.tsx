@@ -144,6 +144,10 @@ export const DialogueGraphEditor: React.FC = () => {
           isSelected: selectedNodeId === node.id,
           avatarColor: char?.avatar_color || '#38bdf8',
           issues: nodeIssues,
+          termTitles,
+          variableTitles,
+          conclusionTitles,
+          eventTitles,
         },
       };
     });
@@ -329,7 +333,7 @@ export const DialogueGraphEditor: React.FC = () => {
           >
             {project.dialogues.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.title} ({d.id})
+                {d.title}
               </option>
             ))}
           </select>
@@ -345,7 +349,7 @@ export const DialogueGraphEditor: React.FC = () => {
           >
             {project.characters.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name} ({c.id})
+                {c.name}
               </option>
             ))}
           </select>
@@ -486,7 +490,7 @@ export const DialogueGraphEditor: React.FC = () => {
                 >
                   {currentDialogue.nodes.map((n) => (
                     <option key={n.id} value={n.id}>
-                      {n.id}
+                      {n.title || n.text.slice(0, 40) || n.id}
                     </option>
                   ))}
                 </select>
@@ -1041,7 +1045,7 @@ export const DialogueGraphEditor: React.FC = () => {
                           >
                             {currentDialogue.nodes.map((n) => (
                               <option key={n.id} value={n.id}>
-                                {n.id} — {n.text.slice(0, 38)}…
+                                {n.title || n.text.slice(0, 38) || n.id}
                               </option>
                             ))}
                           </select>
