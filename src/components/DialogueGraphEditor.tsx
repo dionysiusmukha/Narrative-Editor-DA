@@ -86,6 +86,7 @@ export const DialogueGraphEditor: React.FC = () => {
   } = useNarrativeStore();
 
   const [creatingDialogue, setCreatingDialogue] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [newDlgCharacter, setNewDlgCharacter] = useState(project.characters[0]?.id || '');
   const [newDlgTitle, setNewDlgTitle] = useState('');
 
@@ -124,6 +125,10 @@ export const DialogueGraphEditor: React.FC = () => {
   // Convert DialogueNodes to ReactFlow Nodes
   const rfNodes: Node[] = useMemo(() => {
     if (!currentDialogue) return [];
+    const termTitles = Object.fromEntries(project.terms.map((term) => [term.id, term.title]));
+    const variableTitles = Object.fromEntries(project.variables.map((variable) => [variable.id, variable.title]));
+    const conclusionTitles = Object.fromEntries(allConclusions.map((conclusion) => [conclusion.id, conclusion.text]));
+    const eventTitles = Object.fromEntries((project.narrative_events || []).map((event) => [event.id, event.fact]));
     return currentDialogue.nodes.map((node) => {
       const char = project.characters.find(
         (c) => c.id === (node.character_id || currentDialogue.character_id)
@@ -142,7 +147,7 @@ export const DialogueGraphEditor: React.FC = () => {
         },
       };
     });
-  }, [currentDialogue, project.characters, selectedNodeId, dialogueIssues]);
+  }, [currentDialogue, project.characters, project.terms, project.variables, project.narrative_events, allConclusions, selectedNodeId, dialogueIssues]);
 
   // Convert DialogueChoices to ReactFlow Edges
   const rfEdges: Edge[] = useMemo(() => {
@@ -162,15 +167,15 @@ export const DialogueGraphEditor: React.FC = () => {
           sourceHandle: ch.id,
           target: ch.target,
           animated: hasCond,
-          label: ch.id,
+          label: ch.title || ch.text.slice(0, 36) || 'Ответ игрока',
           style: {
             stroke: hasCond ? '#f59e0b' : '#38bdf8',
             strokeWidth: 2,
           },
           labelStyle: {
             fill: '#cbd5e1',
-            fontSize: 11,
-            fontFamily: 'monospace',
+            fontSize: 13,
+            fontFamily: 'sans-serif',
           },
           labelBgStyle: {
             fill: '#0f172a',
@@ -282,7 +287,7 @@ export const DialogueGraphEditor: React.FC = () => {
     return <div className="page-container">          <form className="card dialogue-create-form" onSubmit={handleCreateNewDialogue}>
             <h3>Новый диалог</h3><label>Персонаж<select value={newDlgCharacter} onChange={(e) => setNewDlgCharacter(e.target.value)}>{project.characters.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
             <div className="field-grid-2">
-              <AutomaticId value={characterId('dialogue', project.characters.find((c) => c.id === newDlgCharacter)?.name || newDlgCharacter, newDlgTitle, project.dialogues.map((item) => item.id))} />
+              <details className="technical-details"><summary>Служебный ID</summary><AutomaticId value={characterId('dialogue', project.characters.find((c) => c.id === newDlgCharacter)?.name || newDlgCharacter, newDlgTitle, project.dialogues.map((item) => item.id))} /></details>
               <input
                 type="text"
                 placeholder="Название диалога"
@@ -376,6 +381,14 @@ export const DialogueGraphEditor: React.FC = () => {
 
         {/* Validator Badge */}
         <div className="toolbar-group">
+          <button
+            type="button"
+            className={`btn ${inspectorOpen ? 'btn-secondary' : 'btn-primary'}`}
+            onClick={() => setInspectorOpen((open) => !open)}
+            aria-pressed={inspectorOpen}
+          >
+            {inspectorOpen ? 'Обзор графа' : 'Редактировать реплику'}
+          </button>
           {dialogueIssues.length === 0 ? (
             <span className="validator-pill valid">
               <CheckCircle2 size={14} /> Граф валиден для Godot ({currentDialogue.nodes.length} узлов)
@@ -392,9 +405,10 @@ export const DialogueGraphEditor: React.FC = () => {
       </div>
 
       {/* Main Split: Canvas + Inspector */}
-      <div className="graph-main-area">
+      <div className={`graph-main-area ${inspectorOpen ? "graph-edit-mode" : "graph-overview-mode"}`}>
         <div className="rf-canvas-wrapper">
           <ReactFlow
+            key={inspectorOpen ? "graph-edit" : "graph-overview"}
             nodes={rfNodes}
             edges={rfEdges}
             nodeTypes={nodeTypes}
@@ -402,6 +416,10 @@ export const DialogueGraphEditor: React.FC = () => {
             onConnect={handleConnect}
             onNodeClick={(_, node) => {
               setSelectedNodeId(node.id);
+            }}
+            onNodeDoubleClick={(_, node) => {
+              setSelectedNodeId(node.id);
+              setInspectorOpen(true);
             }}
             fitView
             minZoom={0.25}
@@ -441,10 +459,10 @@ export const DialogueGraphEditor: React.FC = () => {
         </div>
 
         {/* Right-Hand Node & Dialogue Inspector */}
-        <aside className="node-inspector">
+        {inspectorOpen && <aside className="node-inspector">
           {/* Dialogue Metadata Collapsible / Header */}
-          <div className="inspector-section">
-            <h4>Параметры диалога</h4>
+          <details className="inspector-section">
+            <summary>Параметры диалога</summary>
             <div className="field-row">
               <label>Название (title)</label>
               <input
@@ -457,7 +475,7 @@ export const DialogueGraphEditor: React.FC = () => {
             </div>
             <div className="field-grid-2">
               <div className="field-row">
-                <label>Начальный узел (start_node)</label>
+                <label>Первая реплика</label>
                 <select
                   value={currentDialogue.start_node}
                   onChange={(e) =>
@@ -504,7 +522,7 @@ export const DialogueGraphEditor: React.FC = () => {
             </details>
             {currentDialogue.allow_cycles && (
               <div className="field-row">
-                <label>Описание цикла (cycle_note — обязательно для Godot)</label>
+                <label>Описание цикла</label>
                 <input
                   type="text"
                   placeholder="Поясните, где выход из цикла..."
@@ -517,13 +535,13 @@ export const DialogueGraphEditor: React.FC = () => {
                 />
               </div>
             )}
-          </div>
+          </details>
 
           {selectedNode ? (
             <div className="inspector-body">
               <div className="inspector-header">
                 <h3>
-                  <GitCommit size={16} /> Узел: <code>{selectedNode.id}</code>
+                  <GitCommit size={16} /> {selectedNode.title || 'Реплика'}
                 </h3>
                 <div className="inline-controls">
                   {currentDialogue.start_node !== selectedNode.id && (
@@ -558,10 +576,10 @@ export const DialogueGraphEditor: React.FC = () => {
                 <div className="field-row">
                   <label>Название реплики</label>
                   <input value={selectedNode.title || ''} onChange={(e) => updateDialogueNode(currentDialogue.id, selectedNode.id, { title: e.target.value })} />
-                  <AutomaticId value={selectedNode.id} />
+                  <details className="technical-details"><summary>Служебный ID</summary><AutomaticId value={selectedNode.id} /></details>
                 </div>
                 <div className="field-row">
-                  <label>Эмоция (VisitorModel.react)</label>
+                  <label>Эмоция реплики</label>
                   <select
                     value={selectedNode.emotion || 'neutral'}
                     onChange={(e) =>
@@ -581,7 +599,7 @@ export const DialogueGraphEditor: React.FC = () => {
 
               <div className="field-grid-2">
                 <div className="field-row">
-                  <label>Говорящий (speaker)</label>
+                  <label>Говорящий</label>
                   <input
                     type="text"
                     value={selectedNode.speaker}
@@ -603,7 +621,7 @@ export const DialogueGraphEditor: React.FC = () => {
                         })
                       }
                     />
-                    Финальный узел (end: true)
+                    Завершает разговор
                   </label>
                 </div>
               </div>
@@ -854,7 +872,7 @@ export const DialogueGraphEditor: React.FC = () => {
                                 }
                               >
                                 <option value="remember">Запомнить событие (remember)</option>
-                                <option value="react">Эмоция (VisitorModel.react)</option>
+                                <option value="react">Изменить эмоцию</option>
                                 <option value="command">
                                   Команда (VisitorBehavior.command)
                                 </option>
@@ -976,7 +994,7 @@ export const DialogueGraphEditor: React.FC = () => {
                       <div key={ch.id} className="subcard choice-subcard">
                         <label>Название ответа<input value={ch.title || ''} onChange={(e) => updateChoice(currentDialogue.id, selectedNode.id, ch.id, { title: e.target.value })} /></label>
                         <div className="subcard-top">
-                          <AutomaticId value={ch.id} />
+                          <details className="technical-details"><summary>Служебный ID</summary><AutomaticId value={ch.id} /></details>
                           <button
                             type="button"
                             className="btn-icon"
@@ -1009,7 +1027,7 @@ export const DialogueGraphEditor: React.FC = () => {
                         </div>
 
                         <div className="field-row">
-                          <label>Переход к узлу (target)</label>
+                          <label>Следующая реплика</label>
                           <select
                             value={ch.target}
                             onChange={(e) =>
@@ -1031,7 +1049,7 @@ export const DialogueGraphEditor: React.FC = () => {
 
                         {/* Required Terms */}
                         <div className="field-row">
-                          <label>Требуемые термины дневника (required_terms):</label>
+                          <label>Нужные сведения из дневника:</label>
                           <div className="chip-group">
                             {project.terms.map((t) => {
                               const active = (ch.required_terms || []).includes(
@@ -1234,7 +1252,7 @@ export const DialogueGraphEditor: React.FC = () => {
 
           {/* Create New Dialogue Footer */}
 
-        </aside>
+        </aside>}
       </div>
     </div>
   );
