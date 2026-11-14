@@ -126,7 +126,7 @@ export const DialogueGraphEditor: React.FC = () => {
   const rfNodes: Node[] = useMemo(() => {
     if (!currentDialogue) return [];
     const termTitles = Object.fromEntries(project.terms.map((term) => [term.id, term.title]));
-    const variableTitles = Object.fromEntries(project.variables.map((variable) => [variable.id, variable.title]));
+    const variableTitles = Object.fromEntries(conditionOptions.map((option) => [option.id, option.label]));
     const conclusionTitles = Object.fromEntries(allConclusions.map((conclusion) => [conclusion.id, conclusion.text]));
     const eventTitles = Object.fromEntries((project.narrative_events || []).map((event) => [event.id, event.fact]));
     return currentDialogue.nodes.map((node) => {
