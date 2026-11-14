@@ -448,7 +448,7 @@ export const DialogueGraphEditor: React.FC = () => {
                 {dialogueIssues.map((iss, idx) => (
                   <li
                     key={idx}
-                    onClick={() => iss.nodeId && setSelectedNodeId(iss.nodeId)}
+                    onClick={() => { if (iss.nodeId) { setSelectedNodeId(iss.nodeId); setInspectorOpen(true); } }}
                   >
                     <code>{iss.path}</code>: {iss.message}
                   </li>
