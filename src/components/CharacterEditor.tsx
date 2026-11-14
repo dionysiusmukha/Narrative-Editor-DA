@@ -187,7 +187,7 @@ export const CharacterEditor: React.FC = () => {
               </div>;
             })}
           </details>
-          <div className="form-grid-2">
+          <div className="form-grid-2 character-main-grid">
             <div className="card">
               <h3>Основные данные</h3>
               <div className="field-row">
@@ -212,7 +212,7 @@ export const CharacterEditor: React.FC = () => {
               </div>
               <div className="field-grid-2">
                 <div className="field-row">
-                  <label>Базовая эмоция в Godot</label>
+                  <label>Базовая эмоция</label>
                   <select
                     value={selectedChar.default_emotion}
                     onChange={(e) =>
@@ -243,7 +243,7 @@ export const CharacterEditor: React.FC = () => {
               </div>
 
               <div className="field-row">
-                <label>Доступные процедурные реакции (VisitorModel.react)</label>
+                <label>Доступные реакции персонажа</label>
                 <div className="chip-group">
                   {NPC_EMOTIONS.map((em) => {
                     const active = selectedChar.available_emotions.includes(em.id);
@@ -288,12 +288,12 @@ export const CharacterEditor: React.FC = () => {
               </div>
             </div>
 
-            <div className="card">
-              <h3>Психология, Мотивация и Секреты</h3>
+            <div className="card character-story-card">
+              <h3>Психология, мотивация и секреты</h3>
               <div className="field-row">
                 <label>Биография</label>
                 <textarea
-                  rows={3}
+                  rows={6}
                   value={selectedChar.biography}
                   onChange={(e) =>
                     updateCharacter(selectedChar.id, { biography: e.target.value })
@@ -303,7 +303,7 @@ export const CharacterEditor: React.FC = () => {
               <div className="field-row">
                 <label>Характер и манера речи</label>
                 <textarea
-                  rows={2}
+                  rows={5}
                   value={selectedChar.personality}
                   onChange={(e) =>
                     updateCharacter(selectedChar.id, { personality: e.target.value })
@@ -313,7 +313,7 @@ export const CharacterEditor: React.FC = () => {
               <div className="field-row">
                 <label>Мотивация</label>
                 <textarea
-                  rows={2}
+                  rows={5}
                   value={selectedChar.motivation}
                   onChange={(e) =>
                     updateCharacter(selectedChar.id, { motivation: e.target.value })
@@ -325,7 +325,7 @@ export const CharacterEditor: React.FC = () => {
                   <Lock size={14} /> Секреты (скрытая информация для сценариста)
                 </label>
                 <textarea
-                  rows={3}
+                  rows={6}
                   value={selectedChar.secrets}
                   onChange={(e) =>
                     updateCharacter(selectedChar.id, { secrets: e.target.value })
