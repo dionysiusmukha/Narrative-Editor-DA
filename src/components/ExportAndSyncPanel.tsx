@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useNarrativeStore } from '../store/useNarrativeStore';
 import { compileGodotFiles } from '../utils/godotExporter';
-import { validateProject } from '../utils/validator';
+import { reviewNarrativeConsistency, validateProject } from '../utils/validator';
+import type { NarrativeProject } from '../types/narrative';
 import {
   FolderSync,
   Download,
@@ -13,12 +14,39 @@ import {
   Upload,
 } from 'lucide-react';
 
+function changedNames<T extends { id: string }>(
+  before: T[],
+  after: T[],
+  label: (item: T) => string
+): string[] {
+  const previous = new Map(before.map((item) => [item.id, item]));
+  const current = new Set(after.map((item) => item.id));
+  return [
+    ...after.filter((item) => !previous.has(item.id) || JSON.stringify(previous.get(item.id)) !== JSON.stringify(item))
+      .map(label),
+    ...before.filter((item) => !current.has(item.id)).map((item) => `Удалено: ${label(item)}`),
+  ];
+}
+
+function contentChanges(before: NarrativeProject, after: NarrativeProject) {
+  return {
+    characters: changedNames(before.characters, after.characters, (item) => item.name),
+    dialogues: changedNames(before.dialogues, after.dialogues, (item) => item.title),
+    journal: [
+      ...changedNames(before.terms, after.terms, (item) => item.title),
+      ...changedNames(before.reasoning_groups, after.reasoning_groups, (item) => item.title),
+      ...changedNames(before.journal_layout?.pages || [], after.journal_layout?.pages || [], (item) => item.title),
+    ],
+  };
+}
+
 export const ExportAndSyncPanel: React.FC = () => {
   const {
     project,
     browserSave,
     projectSave,
     godotExport,
+    lastExportedProject,
     setGodotProjectPath,
     syncWithGodot,
     saveProjectToServer,
@@ -31,6 +59,10 @@ export const ExportAndSyncPanel: React.FC = () => {
 
   const compiledFiles = useMemo(() => compileGodotFiles(project), [project]);
   const issues = useMemo(() => validateProject(project), [project]);
+  const technicalErrors = issues.filter((issue) => issue.level === 'error');
+  const editorialWarnings = useMemo(() => [...issues.filter((issue) => issue.level === 'warning'), ...reviewNarrativeConsistency(project)], [issues, project]);
+  const comparableExport = lastExportedProject?.godot_project_path === project.godot_project_path ? lastExportedProject : null;
+  const changes = useMemo(() => comparableExport ? contentChanges(comparableExport, project) : null, [comparableExport, project]);
 
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
   const exampleUrl = new URL('../../examples/arkadiy-memory.narrative.json', import.meta.url).href;
@@ -173,23 +205,23 @@ export const ExportAndSyncPanel: React.FC = () => {
             type="button"
             className="btn btn-primary"
             onClick={() => syncWithGodot()}
-            disabled={issues.length > 0 || godotExport.state === 'saving'}
+            disabled={technicalErrors.length > 0 || godotExport.state === 'saving'}
           >
             <FolderSync size={16} /> Выгрузить в Dark Alone ({compiledFiles.length}{' '}
             файлов)
           </button>
         </div>
 
-        {issues.length > 0 ? (
+        {technicalErrors.length > 0 ? (
           <div className="alert-box alert-error">
             <AlertTriangle size={16} />
             <div>
               <strong>
-                Обнаружено ошибок валидации ({issues.length}). Исправьте их перед
+                Обнаружено ошибок структуры ({technicalErrors.length}). Исправьте их перед
                 экспортом в Godot:
               </strong>
               <ul>
-                {issues.map((iss, idx) => (
+                {technicalErrors.map((iss, idx) => (
                   <li key={idx}>
                     <code>{iss.path}</code>: {iss.message}
                     {iss.dialogueId && <button className="btn btn-secondary btn-xs" onClick={() => {
@@ -206,12 +238,50 @@ export const ExportAndSyncPanel: React.FC = () => {
           <div className="alert-box alert-success">
             <CheckCircle2 size={16} />
             <span>
-              Проверки редактора пройдены. {project.narrative_events?.length ? 'Укажите пакет событий в Main.narrative_events_path нужной сцены Godot.' : 'Графы, словарь и переменные готовы к экспорту.'}
+Техническая проверка пройдена: JSON можно выгрузить. {project.narrative_events?.length ? 'Укажите пакет событий в Main.narrative_events_path нужной сцены Godot.' : 'Графы, словарь и переменные готовы к экспорту.'}
             </span>
           </div>
         )}
 
 
+
+        <section className="content-review">
+          <h3>Перед выгрузкой: изменения контента</h3>
+          {changes ? (
+            <div className="content-review-groups">
+              {([
+                ['Персонажи', changes.characters],
+                ['Диалоги', changes.dialogues],
+                ['Дневник и выводы', changes.journal],
+              ] as const).map(([label, names]) => (
+                <div key={label}>
+                  <strong>{label}: {names.length}</strong>
+                  <p>{names.length ? names.slice(0, 5).join(' · ') : 'Без изменений'}{names.length > 5 ? ` · ещё ${names.length - 5}` : ''}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>Нет подтверждённой предыдущей выгрузки для этой папки в браузере. Сейчас в проекте {project.characters.length} персонажей, {project.dialogues.length} диалогов и {project.terms.length + project.reasoning_groups.length + (project.journal_layout?.pages.length || 0)} записей и страниц дневника.</p>
+          )}
+          {changes && godotExport.state === 'outdated' && !Object.values(changes).some((names) => names.length) && (
+            <p>Состав контента не изменился; проверьте путь выгрузки или файлы в папке Godot.</p>
+          )}
+        </section>
+
+        {editorialWarnings.length > 0 && (
+          <div className="alert-box alert-warning">
+            <AlertTriangle size={16} />
+            <div>
+              <strong>Сюжетные замечания ({editorialWarnings.length}) — экспорт не блокируют</strong>
+              <p>Файлы технически пригодны для выгрузки; эти связи стоит проверить по смыслу.</p>
+              <ul>
+                {editorialWarnings.map((warning, index) => (
+                  <li key={index}>{warning.message}{warning.dialogueId && <button className="btn btn-secondary btn-xs" onClick={() => { setSelectedDialogueId(warning.dialogueId!); setActiveTab('dialogues'); }}>Открыть диалог</button>}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
 
         {(godotExport.paths?.length || 0) > 0 && (
           <div className="written-files-box">
@@ -258,7 +328,7 @@ export const ExportAndSyncPanel: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  disabled={issues.length > 0}
+                  disabled={technicalErrors.length > 0}
                   onClick={() =>
                     navigator.clipboard.writeText(activeFile.content)
                   }
@@ -268,7 +338,7 @@ export const ExportAndSyncPanel: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"
-                  disabled={issues.length > 0}
+                  disabled={technicalErrors.length > 0}
                   onClick={() =>
                     handleDownloadFile(
                       activeFile.relativePath,
