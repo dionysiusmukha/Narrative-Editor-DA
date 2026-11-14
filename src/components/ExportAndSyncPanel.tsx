@@ -16,7 +16,9 @@ import {
 export const ExportAndSyncPanel: React.FC = () => {
   const {
     project,
-    syncStatus,
+    browserSave,
+    projectSave,
+    godotExport,
     setGodotProjectPath,
     syncWithGodot,
     saveProjectToServer,
@@ -31,17 +33,10 @@ export const ExportAndSyncPanel: React.FC = () => {
   const issues = useMemo(() => validateProject(project), [project]);
 
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
-  const [lastSyncedPaths, setLastSyncedPaths] = useState<string[]>([]);
   const exampleUrl = new URL('../../examples/arkadiy-memory.narrative.json', import.meta.url).href;
 
   const activeFile = compiledFiles[selectedFileIndex] || compiledFiles[0];
 
-  const handleSync = async () => {
-    const result = await syncWithGodot();
-    if (result.ok && result.files) {
-      setLastSyncedPaths(result.files);
-    }
-  };
 
   const handleDownloadFile = (filename: string, content: string) => {
     const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
@@ -149,16 +144,17 @@ export const ExportAndSyncPanel: React.FC = () => {
             type="button"
             className="btn btn-secondary"
             onClick={saveProjectToServer}
+            disabled={projectSave.state === 'saving'}
           >
             Сохранить проект редактора
           </button>
           <button
             type="button"
             className="btn btn-primary"
-            onClick={handleSync}
-            disabled={issues.length > 0}
+            onClick={() => syncWithGodot()}
+            disabled={issues.length > 0 || godotExport.state === 'saving'}
           >
-            <FolderSync size={16} /> Синхронизировать с Dark Alone ({compiledFiles.length}{' '}
+            <FolderSync size={16} /> Выгрузить в Dark Alone ({compiledFiles.length}{' '}
             файлов)
           </button>
         </div>
@@ -194,21 +190,34 @@ export const ExportAndSyncPanel: React.FC = () => {
           </div>
         )}
 
-        {syncStatus.message && (
-          <div className="sync-status-line">
-            Статус: <strong>{syncStatus.message}</strong>{' '}
-            {syncStatus.lastSyncAt && <span>({syncStatus.lastSyncAt})</span>}
+        <div className="sync-status-line">
+          <div>Черновик в браузере: <strong>{browserSave.state === 'saved' ? 'сохранён'
+            : browserSave.state === 'error' ? 'ошибка сохранения' : 'не проверен'}</strong>
+            {browserSave.message && <span> — {browserSave.message}</span>}
           </div>
-        )}
+          <div>Проект редактора: <strong>{projectSave.state === 'saved' ? 'текущая версия сохранена'
+            : projectSave.state === 'saving' ? 'сохраняется…'
+            : projectSave.state === 'outdated' ? 'есть несохранённые изменения'
+            : projectSave.state === 'error' ? 'ошибка сохранения' : 'не проверен'}</strong>
+            {projectSave.lastSavedAt && <span> ({projectSave.lastSavedAt})</span>}
+            {projectSave.message && <span> — {projectSave.message}</span>}
+          </div>
+          <div>Файлы Godot: <strong>{godotExport.state === 'saved' ? 'текущая версия выгружена'
+            : godotExport.state === 'saving' ? 'выгружается…'
+            : godotExport.state === 'outdated' ? 'текущие изменения не выгружены'
+            : godotExport.state === 'error' ? 'ошибка выгрузки' : 'не проверены'}</strong>
+            {godotExport.lastSavedAt && <span> ({godotExport.lastSavedAt})</span>}
+            {godotExport.message && <span> — {godotExport.message}</span>}
+          </div>
+          <small>Выгрузка подтверждает запись файлов, а не их загрузку запущенной игрой.</small>
+        </div>
 
-        {lastSyncedPaths.length > 0 && (
+        {(godotExport.paths?.length || 0) > 0 && (
           <div className="written-files-box">
-            <small>Записанные файлы в репозиторий Dark Alone:</small>
+            <small>Последние подтверждённые файлы в папке Dark Alone:</small>
             <div className="chip-group">
-              {lastSyncedPaths.map((p) => (
-                <code key={p} className="code-badge">
-                  {p}
-                </code>
+              {godotExport.paths?.map((p) => (
+                <code key={p} className="code-badge">{p}</code>
               ))}
             </div>
           </div>
