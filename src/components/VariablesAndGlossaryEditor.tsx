@@ -361,7 +361,7 @@ export const VariablesAndGlossaryEditor: React.FC<{
 
           <div className="scrollable-list">
             {project.reasoning_groups.map((grp) => (
-              <div key={grp.id} className="glossary-item-card">
+              <div id={`reasoning-${grp.id}`} tabIndex={-1} key={grp.id} className="glossary-item-card">
                 <div className="glossary-item-top">
                   <div>
                     <code>{grp.id}</code>

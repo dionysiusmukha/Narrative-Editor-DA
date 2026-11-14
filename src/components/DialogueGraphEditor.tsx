@@ -18,6 +18,7 @@ import '@xyflow/react/dist/style.css';
 import { useNarrativeStore } from '../store/useNarrativeStore';
 import {
   ConditionOperator,
+  DialogueChoice,
   NarrativeProject,
   DialogueEffectType,
   DRINK_INGREDIENTS,
@@ -25,7 +26,7 @@ import {
   NpcEmotion,
 } from '../types/narrative';
 import { DialogueSpeechNode } from './nodes/DialogueSpeechNode';
-import { isValidSnakeCaseId, validateProject } from '../utils/validator';
+import { isValidSnakeCaseId, reviewNarrativeConsistency, validateProject } from '../utils/validator';
 import { computedConditions } from '../utils/npcMemory';
 import {
   Plus,
@@ -112,6 +113,12 @@ export const DialogueGraphEditor: React.FC = () => {
     [allIssues, currentDialogue?.id]
   );
 
+  const technicalErrors = dialogueIssues.filter((issue) => issue.level === 'error');
+  const editorialWarnings = useMemo(
+    () => reviewNarrativeConsistency(project).filter((issue) => issue.dialogueId === currentDialogue?.id),
+    [project, currentDialogue?.id]
+  );
+
   const allConclusions = useMemo(() => {
     const list: Array<{ id: string; text: string; groupTitle: string }> = [];
     for (const g of project.reasoning_groups) {
@@ -121,6 +128,19 @@ export const DialogueGraphEditor: React.FC = () => {
     }
     return list;
   }, [project.reasoning_groups]);
+
+  const describeChoice = (choice: DialogueChoice): string => {
+    const parts: string[] = [];
+    const termCount = choice.required_terms?.length || 0;
+    if (termCount) parts.push(`${termCount} ${termCount === 1 ? 'термин' : termCount < 5 ? 'термина' : 'терминов'}`);
+    const conclusionCount = choice.required_conclusions?.length || 0;
+    if (conclusionCount) parts.push(`${conclusionCount} ${conclusionCount === 1 ? 'вывод' : conclusionCount < 5 ? 'вывода' : 'выводов'}`);
+    for (const condition of choice.conditions || []) {
+      const label = conditionOptions.find((option) => option.id === condition.variable_id)?.label || condition.variable_id;
+      parts.push(`${label} ${condition.op} ${typeof condition.value === 'boolean' ? (condition.value ? 'да' : 'нет') : String(condition.value)}`);
+    }
+    return parts.length ? `Нужно: ${parts.join(' · ')}` : 'Без дополнительных условий';
+  };
 
   // Convert DialogueNodes to ReactFlow Nodes
   const rfNodes: Node[] = useMemo(() => {
@@ -285,6 +305,7 @@ export const DialogueGraphEditor: React.FC = () => {
     });
     setNewDlgTitle('');
     setCreatingDialogue(false);
+    setInspectorOpen(true);
   };
 
   if (!currentDialogue) {
@@ -393,20 +414,35 @@ export const DialogueGraphEditor: React.FC = () => {
           >
             {inspectorOpen ? 'Обзор графа' : 'Редактировать реплику'}
           </button>
-          {dialogueIssues.length === 0 ? (
+          {technicalErrors.length === 0 ? (
             <span className="validator-pill valid">
-              <CheckCircle2 size={14} /> Граф валиден для Godot ({currentDialogue.nodes.length} узлов)
+              <CheckCircle2 size={14} /> Структура пригодна для Godot ({currentDialogue.nodes.length} узлов)
             </span>
           ) : (
             <span
               className="validator-pill invalid"
-              title={dialogueIssues.map((i) => i.message).join('\n')}
+              title={technicalErrors.map((i) => i.message).join('\n')}
             >
-              <AlertCircle size={14} /> Ошибок валидации: {dialogueIssues.length}
+              <AlertCircle size={14} /> Ошибок структуры: {technicalErrors.length}
             </span>
           )}
         </div>
       </div>
+
+      <div className="authoring-path" aria-label="Шаги работы над диалогом">
+        <span>Путь автора:</span>
+        <button type="button" onClick={() => setActiveTab('characters')}>1. Персонаж</button>
+        <button type="button" onClick={() => { setSelectedNodeId(selectedNode?.id || currentDialogue.start_node); setInspectorOpen(true); }}>2. Реплика</button>
+        <button type="button" onClick={() => { setSelectedNodeId(selectedNode?.id || currentDialogue.start_node); setInspectorOpen(true); requestAnimationFrame(() => document.getElementById('dialogue-choices-section')?.scrollIntoView({ block: 'start' })); }}>3. Ответы</button>
+        <button type="button" onClick={() => setActiveTab('simulator')}>4. Проверка</button>
+        <small>Подробные параметры диалога и эффекты раскрываются по необходимости.</small>
+      </div>
+      {editorialWarnings.length > 0 && (
+        <div className="graph-editorial-warning" role="status">
+          <strong>Сюжетное замечание:</strong> {editorialWarnings.map((warning) => warning.message).join(' ')}
+          <small>Техническая проверка ниже отвечает только за структуру файлов.</small>
+        </div>
+      )}
 
       {/* Main Split: Canvas + Inspector */}
       <div className={`graph-main-area ${inspectorOpen ? "graph-edit-mode" : "graph-overview-mode"}`}>
@@ -443,13 +479,13 @@ export const DialogueGraphEditor: React.FC = () => {
           </ReactFlow>
 
           {/* Validation Issues Drawer if any */}
-          {dialogueIssues.length > 0 && (
+          {technicalErrors.length > 0 && (
             <div className="validation-Overlay">
               <h4>
-                <AlertCircle size={14} /> Диагностика DialogueContentValidator:
+                <AlertCircle size={14} /> Ошибки структуры диалога:
               </h4>
               <ul>
-                {dialogueIssues.map((iss, idx) => (
+                {technicalErrors.map((iss, idx) => (
                   <li
                     key={idx}
                     onClick={() => { if (iss.nodeId) { setSelectedNodeId(iss.nodeId); setInspectorOpen(true); } }}
@@ -677,11 +713,9 @@ export const DialogueGraphEditor: React.FC = () => {
               )}
 
               {/* Entry Effects (Consequences) */}
-              <div className="inspector-subsection">
+              <details className="inspector-subsection">
+                <summary>Эффекты при входе в реплику ({selectedNode.effects.length})</summary>
                 <div className="subsection-header">
-                  <h4>
-                    <Sparkles size={15} /> Последствия и События входа (effects)
-                  </h4>
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
@@ -973,11 +1007,11 @@ export const DialogueGraphEditor: React.FC = () => {
                     ))}
                   </div>
                 )}
-              </div>
+              </details>
 
               {/* Player Choices & Conditions */}
               {!selectedNode.end && (
-                <div className="inspector-subsection">
+                <div className="inspector-subsection" id="dialogue-choices-section">
                   <div className="subsection-header">
                     <h4>
                       <Sliders size={15} /> Варианты ответа и Условия ({selectedNode.choices.length})
@@ -995,7 +1029,12 @@ export const DialogueGraphEditor: React.FC = () => {
 
                   <div className="choices-editor-list">
                     {selectedNode.choices.map((ch) => (
-                      <div key={ch.id} className="subcard choice-subcard">
+                      <details key={ch.id} className="subcard choice-subcard">
+                         <summary className="choice-summary">
+                           <strong>{ch.text || ch.title || 'Ответ игрока'}</strong>
+                           <span>{describeChoice(ch)}</span>
+                           <em>Настроить ответ ▾</em>
+                         </summary>
                         <label>Название ответа<input value={ch.title || ''} onChange={(e) => updateChoice(currentDialogue.id, selectedNode.id, ch.id, { title: e.target.value })} /></label>
                         <div className="subcard-top">
                           <details className="technical-details"><summary>Служебный ID</summary><AutomaticId value={ch.id} /></details>
@@ -1241,7 +1280,7 @@ export const DialogueGraphEditor: React.FC = () => {
                             );
                           })}
                         </div>
-                      </div>
+                      </details>
                     ))}
                   </div>
                 </div>
