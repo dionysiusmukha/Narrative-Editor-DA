@@ -799,7 +799,9 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
 
     saveProjectToServer: async () => {
       const project = get().project;
-      set({ projectSave: { state: 'saving' } });
+      set((state) => ({
+        projectSave: { state: 'saving', lastSavedAt: state.projectSave.lastSavedAt },
+      }));
       try {
         const res = await fetch('/api/save-project', {
           method: 'POST',
@@ -814,12 +816,13 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
             : { state: 'outdated', message: 'После сохранения появились новые правки', lastSavedAt: new Date().toLocaleTimeString() },
         });
       } catch (error) {
-        set({
+        set((state) => ({
           projectSave: {
             state: 'error',
             message: error instanceof Error ? error.message : 'Сервер недоступен',
+            lastSavedAt: state.projectSave.lastSavedAt,
           },
-        });
+        }));
       }
     },
 
@@ -831,7 +834,13 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
         set({ godotExport: { state: 'error', message: error } });
         return { ok: false, error };
       }
-      set({ godotExport: { state: 'saving' } });
+      set((state) => ({
+        godotExport: {
+          state: 'saving',
+          lastSavedAt: state.godotExport.lastSavedAt,
+          paths: state.godotExport.paths,
+        },
+      }));
       try {
         const res = await fetch('/api/sync-godot', {
           method: 'POST',
@@ -858,7 +867,14 @@ export const useNarrativeStore = create<NarrativeStoreState>((set, get) => {
         return { ok: true, files: data.writtenFiles };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        set({ godotExport: { state: 'error', message } });
+        set((state) => ({
+          godotExport: {
+            state: 'error',
+            message,
+            lastSavedAt: state.godotExport.lastSavedAt,
+            paths: state.godotExport.paths,
+          },
+        }));
         return { ok: false, error: message };
       }
     },
