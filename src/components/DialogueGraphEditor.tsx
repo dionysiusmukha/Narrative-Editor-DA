@@ -1033,6 +1033,7 @@ export const DialogueGraphEditor: React.FC = () => {
                          <summary className="choice-summary">
                            <strong>{ch.text || ch.title || 'Ответ игрока'}</strong>
                            <span>{describeChoice(ch)}</span>
+                           <em>Настроить ответ ▾</em>
                          </summary>
                         <label>Название ответа<input value={ch.title || ''} onChange={(e) => updateChoice(currentDialogue.id, selectedNode.id, ch.id, { title: e.target.value })} /></label>
                         <div className="subcard-top">
