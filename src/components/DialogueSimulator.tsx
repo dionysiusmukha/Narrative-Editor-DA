@@ -6,7 +6,7 @@ import {
   NPC_EMOTIONS,
 } from '../types/narrative';
 import { RECORD_KINDS } from '../types/narrative';
-import { evaluateCondition, KIND_LABELS, rememberEvent, visibleRecords, type EventHistory } from '../utils/npcMemory';
+import { computedConditions, evaluateCondition, KIND_LABELS, rememberEvent, visibleRecords, type EventHistory } from '../utils/npcMemory';
 import {
   Play,
   RotateCcw,
@@ -54,7 +54,9 @@ export const DialogueSimulator: React.FC = () => {
   const acquired = visibleRecords(events, history, characterId);
   const initialVariables = () => Object.fromEntries(project.variables.map((variable) => [variable.id, variable.default_value]));
   const termTitle = (id: string) => project.terms.find((term) => term.id === id)?.title || id;
-  const conditionTitle = (id: string) => project.variables.find((variable) => variable.id === id)?.title || id;
+  const conditionTitle = (id: string) => project.variables.find((variable) => variable.id === id)?.title || computedConditions(events, currentDialogue?.character_id || '').find((condition) => condition.id === id)?.label || id;
+  const valueLabel = (value: boolean | number | string | undefined) => value === undefined ? 'нет значения' : typeof value === 'boolean' ? (value ? 'да' : 'нет') : String(value);
+  const operatorLabel = (operator: string) => operator === '==' ? 'равно' : operator === '!=' ? 'не равно' : operator === '>=' ? 'не меньше' : operator === '<=' ? 'не больше' : operator === '>' ? 'больше' : 'меньше';
 
   const applyNodeEntry = (
     nodeId: string,
@@ -508,7 +510,7 @@ export const DialogueSimulator: React.FC = () => {
                           })}
                           {failedConditions.map((condition, index) => (
                             <span key={index}>
-                              <Lock size={11} /> Требуется: {conditionTitle(condition.variable_id)} {condition.op} {String(condition.value)} (сейчас: {String(variables[condition.variable_id])})
+                              <Lock size={11} /> Требуется: {conditionTitle(condition.variable_id)} {operatorLabel(condition.op)} {valueLabel(condition.value)} (сейчас: {valueLabel(variables[condition.variable_id])})
                             </span>
                           ))}
                         </div>
