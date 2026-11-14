@@ -77,7 +77,7 @@ export const DialogueSpeechNode: React.FC<NodeProps> = ({ data }) => {
               <Flag size={10} /> Финал
             </span>
           )}
-          <strong className="rf-node-title">{node.title || "Реплика"}</strong>
+          <strong className="rf-node-title" title={node.id}>{node.title || "Реплика"}</strong>
         </div>
         {issues.length > 0 && (
           <span
