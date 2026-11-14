@@ -33,9 +33,9 @@ function contentChanges(before: NarrativeProject, after: NarrativeProject) {
     characters: changedNames(before.characters, after.characters, (item) => item.name),
     dialogues: changedNames(before.dialogues, after.dialogues, (item) => item.title),
     journal: [
-      ...changedNames(before.terms, after.terms, (item) => item.title),
-      ...changedNames(before.reasoning_groups, after.reasoning_groups, (item) => item.title),
-      ...changedNames(before.journal_layout?.pages || [], after.journal_layout?.pages || [], (item) => item.title),
+      ...changedNames(before.terms, after.terms, (item) => `Термин «${item.title}»`),
+      ...changedNames(before.reasoning_groups, after.reasoning_groups, (item) => `Группа выводов «${item.title}»`),
+      ...changedNames(before.journal_layout?.pages || [], after.journal_layout?.pages || [], (item) => `Страница «${item.title}»`),
     ],
   };
 }
@@ -238,11 +238,10 @@ export const ExportAndSyncPanel: React.FC = () => {
           <div className="alert-box alert-success">
             <CheckCircle2 size={16} />
             <span>
-Техническая проверка пройдена: JSON можно выгрузить. {project.narrative_events?.length ? 'Укажите пакет событий в Main.narrative_events_path нужной сцены Godot.' : 'Графы, словарь и переменные готовы к экспорту.'}
+              Техническая проверка пройдена: JSON можно выгрузить. {project.narrative_events?.length ? 'Укажите пакет событий в Main.narrative_events_path нужной сцены Godot.' : 'Графы, словарь и переменные готовы к экспорту.'}
             </span>
           </div>
         )}
-
 
 
         <section className="content-review">
