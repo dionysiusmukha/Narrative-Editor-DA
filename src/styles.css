@@ -1301,3 +1301,103 @@ textarea:focus {
 .dialogue-starts .subcard, .start-picker .subcard { margin-top: 12px; }
 .start-picker .btn { margin: 5px; }
 .graph-toolbar .toolbar-group { flex-wrap: wrap; }
+
+/* Authoring workspaces */
+.graph-workspace,
+.graph-main-area,
+.rf-canvas-wrapper {
+  min-width: 0;
+  min-height: 0;
+}
+.graph-toolbar,
+.graph-toolbar .toolbar-group {
+  flex-wrap: wrap;
+}
+.graph-toolbar .toolbar-group {
+  min-width: 0;
+}
+.graph-toolbar .dialogue-select {
+  min-width: min(240px, 70vw);
+}
+.graph-edit-mode .node-inspector {
+  width: min(560px, 55vw);
+  min-width: 360px;
+}
+.node-inspector .inspector-section > summary,
+.technical-details > summary {
+  cursor: pointer;
+}
+.technical-details {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.rf-node-title {
+  font-size: 12px;
+  line-height: 1.35;
+}
+.character-story-card textarea {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.55;
+}
+.character-main-grid {
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+}
+.export-page {
+  min-width: 0;
+  overflow-x: hidden;
+}
+.export-page .page-header {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  min-width: 0;
+}
+.export-page .page-header > div,
+.export-page .sync-banner-card,
+.export-page .export-code-viewer {
+  min-width: 0;
+}
+.export-page .inline-controls,
+.export-page .sync-row,
+.export-page .card-header-inline {
+  flex-wrap: wrap;
+}
+.export-page .sync-row {
+  margin-top: 14px;
+}
+.export-page .sync-row .field-row {
+  min-width: 100%;
+}
+.export-page .export-preview-layout {
+  grid-template-columns: minmax(0, 1fr);
+  flex: none;
+}
+.export-page .export-file-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+.export-page .export-file-list h3 {
+  grid-column: 1 / -1;
+}
+.export-page .json-pre {
+  max-width: 100%;
+}
+@media (max-width: 1300px) {
+  .character-main-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 900px) {
+  .graph-edit-mode .rf-canvas-wrapper {
+    display: none;
+  }
+  .graph-edit-mode .node-inspector {
+    width: 100%;
+    min-width: 0;
+  }
+}
