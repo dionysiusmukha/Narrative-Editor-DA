@@ -173,7 +173,7 @@ export const DialogueSpeechNode: React.FC<NodeProps> = ({ data }) => {
                       ))}
                       {(ch.conditions || []).map((cond, idx) => (
                         <span key={idx} className="cond-pill cond-var">
-                          {variableTitles[cond.variable_id] || cond.variable_id} {cond.op} {String(cond.value)}
+                          {variableTitles[cond.variable_id] || cond.variable_id} {cond.op === '==' ? 'равно' : cond.op === '!=' ? 'не равно' : cond.op === '>=' ? 'не меньше' : cond.op === '<=' ? 'не больше' : cond.op === '>' ? 'больше' : 'меньше'} {typeof cond.value === 'boolean' ? (cond.value ? 'да' : 'нет') : String(cond.value)}
                         </span>
                       ))}
                     </div>
