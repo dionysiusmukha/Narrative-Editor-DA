@@ -134,6 +134,7 @@ export const DialogueSimulator: React.FC = () => {
 
   const resetSimulation = () => {
     if (!currentDialogue) return;
+    setInspectedCharacter(currentDialogue.character_id);
     setShift(1);
     setChosenConclusions({});
     setEventLog(['--- Симуляция запущена с начального состояния ---']);
@@ -171,6 +172,7 @@ export const DialogueSimulator: React.FC = () => {
   };
 
   useEffect(() => {
+    setInspectedCharacter(currentDialogue?.character_id || '');
     startMeeting();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDialogue?.id]);
@@ -225,6 +227,12 @@ export const DialogueSimulator: React.FC = () => {
           <label className="memory-inspector-label">Состояние персонажа<select value={characterId} onChange={(e) => setInspectedCharacter(e.target.value)}>
             {project.characters.map((character) => <option key={character.id} value={character.id}>{character.name}</option>)}
           </select></label>
+          {characterId !== currentDialogue.character_id && (
+            <div className="alert-box alert-error" role="status">
+              Показано состояние другого персонажа. Текущий диалог: {project.characters.find((character) => character.id === currentDialogue.character_id)?.name || currentDialogue.character_id}.
+              <button className="btn btn-secondary btn-xs" onClick={() => setInspectedCharacter(currentDialogue.character_id)}>Показать его состояние</button>
+            </div>
+          )}
           {characterId === currentDialogue.character_id && <p className="muted-text">Текущая реакция · {emotionMeta.label}</p>}
           {RECORD_KINDS.map((kind) => <div key={kind} className="memory-inspector-group"><strong>{KIND_LABELS[kind]}</strong>
             {acquired.filter(({ record }) => record.kind === kind).map(({ record, eventId, shift }) => <p key={record.id}>{record.text}<br />
