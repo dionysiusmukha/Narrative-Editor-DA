@@ -113,7 +113,7 @@ export const App: React.FC = () => {
           ] as const).map(([label, status]) => (
             <span
               key={label}
-              className={`sync-pill ${status.state === 'saved' ? 'synced' : status.state === 'error' ? 'error' : ''}`}
+              className={`sync-pill ${status.state === 'saved' ? 'synced' : status.state === 'error' ? 'error' : status.state === 'outdated' ? 'outdated' : ''}`}
               title={status.message || (status.lastSavedAt ? `Последнее сохранение: ${status.lastSavedAt}` : '')}
             >
               {label}: {status.state === 'saved' ? 'сохранено'
