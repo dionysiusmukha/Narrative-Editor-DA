@@ -21,6 +21,10 @@ export interface SpeechNodeData extends Record<string, unknown> {
   isSelected: boolean;
   avatarColor: string;
   issues: ValidationIssue[];
+  termTitles: Record<string, string>;
+  variableTitles: Record<string, string>;
+  conclusionTitles: Record<string, string>;
+  eventTitles: Record<string, string>;
 }
 
 function renderFormattedText(text: string) {
@@ -38,7 +42,7 @@ function renderFormattedText(text: string) {
 }
 
 export const DialogueSpeechNode: React.FC<NodeProps> = ({ data }) => {
-  const { node, isStart, isSelected, avatarColor, issues } =
+  const { node, isStart, isSelected, avatarColor, issues, termTitles, variableTitles, conclusionTitles, eventTitles } =
     data as unknown as SpeechNodeData;
 
   const emotionMeta =
@@ -65,15 +69,15 @@ export const DialogueSpeechNode: React.FC<NodeProps> = ({ data }) => {
         <div className="rf-node-badges">
           {isStart && (
             <span className="node-badge badge-start">
-              <Play size={10} /> START
+              <Play size={10} /> Начало
             </span>
           )}
           {node.end && (
             <span className="node-badge badge-end">
-              <Flag size={10} /> END
+              <Flag size={10} /> Финал
             </span>
           )}
-          <code className="rf-node-id">{node.id}</code>
+          <strong className="rf-node-title">{node.title || "Реплика"}</strong>
         </div>
         {issues.length > 0 && (
           <span
@@ -96,7 +100,7 @@ export const DialogueSpeechNode: React.FC<NodeProps> = ({ data }) => {
               color: emotionMeta.color,
             }}
           >
-            {node.emotion}
+            {emotionMeta.label}
           </span>
         )}
       </div>
@@ -115,7 +119,7 @@ export const DialogueSpeechNode: React.FC<NodeProps> = ({ data }) => {
               if (ef.type === 'grant_term') {
                 return (
                   <span key={ef.effect_id} className="effect-pill pill-term">
-                    <BookOpen size={10} /> +{ef.term_id}
+                    <BookOpen size={10} /> +{termTitles[ef.term_id || ''] || ef.term_id}
                   </span>
                 );
               }
@@ -128,13 +132,13 @@ export const DialogueSpeechNode: React.FC<NodeProps> = ({ data }) => {
                     : `=${String(ef.value)}`;
                 return (
                   <span key={ef.effect_id} className="effect-pill pill-var">
-                    <Sliders size={10} /> {ef.variable_id} {sign}
+                    <Sliders size={10} /> {variableTitles[ef.variable_id || ''] || ef.variable_id} {sign}
                   </span>
                 );
               }
               return (
                 <span key={ef.effect_id} className="effect-pill pill-event">
-                  ⚡ {ef.event}:{ef.arg}
+                  ⚡ {ef.type === 'npc_event' && ef.event === 'remember' ? `Запомнить: ${eventTitles[ef.arg || ''] || ef.arg}` : ef.title || 'Событие'}
                 </span>
               );
             })}
@@ -159,17 +163,17 @@ export const DialogueSpeechNode: React.FC<NodeProps> = ({ data }) => {
                     <div className="rf-choice-conditions">
                       {(ch.required_terms || []).map((t) => (
                         <span key={t} className="cond-pill cond-term">
-                          <Lock size={9} /> термин: {t}
+                          <Lock size={9} /> сведение: {termTitles[t] || t}
                         </span>
                       ))}
                       {(ch.required_conclusions || []).map((c) => (
                         <span key={c} className="cond-pill cond-conc">
-                          <Lock size={9} /> вывод: {c}
+                          <Lock size={9} /> вывод: {conclusionTitles[c] || c}
                         </span>
                       ))}
                       {(ch.conditions || []).map((cond, idx) => (
                         <span key={idx} className="cond-pill cond-var">
-                          if {cond.variable_id} {cond.op} {String(cond.value)}
+                          {variableTitles[cond.variable_id] || cond.variable_id} {cond.op} {String(cond.value)}
                         </span>
                       ))}
                     </div>
